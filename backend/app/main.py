@@ -1,12 +1,8 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from app.models.repository import RepositoryRequest
+from app.services.github_services import analyze_repository
 
 app = FastAPI()
-
-
-class RepositoryRequest(BaseModel):
-    github_url: str
-    branch: str="main"
 
 
 @app.get("/")
@@ -15,9 +11,5 @@ def root():
 
 
 @app.post("/repository/analyze")
-def analyze_repository(repo: RepositoryRequest):
-    return {
-        "status": "success",
-        "received_url": repo.github_url,
-        "branch": repo.branch
-    }
+def analyze(repo: RepositoryRequest):
+    return analyze_repository(repo)
