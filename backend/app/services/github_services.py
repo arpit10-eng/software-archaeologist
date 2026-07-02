@@ -1,5 +1,6 @@
 import requests
 from app.services.git_services import clone_repository
+from app.services.file_services import scan_repository
 from fastapi import HTTPException
 from app.utils.validators import is_valid_github_url
 
@@ -12,6 +13,7 @@ def analyze_repository(repo):
             detail="Invalid GitHub repository URL"
         )
     cloned_path = clone_repository(repo.github_url)
+    files = scan_repository(cloned_path)
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -31,5 +33,6 @@ def analyze_repository(repo):
     "repository": repo.github_url,
     "branch": repo.branch,
     "cloned_to": cloned_path,
-    "message": "Repository cloned successfully!"
+    "total_files": len(files),
+    "files": files
 }
