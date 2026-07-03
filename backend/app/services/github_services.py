@@ -12,7 +12,9 @@ def analyze_repository(repo):
             status_code=400,
             detail="Invalid GitHub repository URL"
         )
+
     cloned_path = clone_repository(repo.github_url)
+
     files = scan_repository(cloned_path)
 
     api_url = repo.github_url.replace(
@@ -29,10 +31,9 @@ def analyze_repository(repo):
         )
 
     return {
-    "status": "success",
-    "repository": repo.github_url,
-    "branch": repo.branch,
-    "cloned_to": cloned_path,
-    "total_files": len(files),
-    "files": files
-}
+        "status": "success",
+        "repository": repo.github_url,
+        "branch": repo.branch,
+        "cloned_to": cloned_path,
+        **files
+    }
