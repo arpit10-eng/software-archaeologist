@@ -21,7 +21,12 @@ def scan_repository(repo_path):
 
         for file in files:
             file_path = os.path.join(root, file)
-            all_files.append(file_path)
+
+            relative_path = os.path.relpath(file_path, repo_path)
+
+            relative_path = relative_path.replace("\\", "/")
+
+            all_files.append(relative_path) 
 
             extension = get_file_extension(file_path)
 
