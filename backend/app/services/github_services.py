@@ -8,6 +8,7 @@ from app.services.git_services import clone_repository
 from app.services.file_services import scan_repository
 from app.utils.validators import is_valid_github_url
 from app.utils.framework_detector import detect_framework
+from app.utils.entry_point_detector import detect_entry_point
 
 def analyze_repository(repo):
 
@@ -30,6 +31,7 @@ def analyze_repository(repo):
 
         files = scan_repository(cloned_path)
         framework = detect_framework(cloned_path, files["files"])
+        entry_point = detect_entry_point(framework,files["files"])
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -45,9 +47,10 @@ def analyze_repository(repo):
         )
 
     return {
-        "status": "success",
-        "repository": repo.github_url,
-        "branch": repo.branch,
-        "framework": framework,
-        **files
-    }
+    "status": "success",
+    "repository": repo.github_url,
+    "branch": repo.branch,
+    "framework": framework,
+    "entry_point": entry_point,
+    **files
+}
