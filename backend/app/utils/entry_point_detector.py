@@ -12,8 +12,21 @@ def detect_entry_point(framework, files):
     else:
         return "Unknown"
 
+    ignored_folders = [
+        "tests",
+        "test",
+        "examples",
+        "docs"
+    ]
+
     for file in files:
-        if file.endswith(target):
-            return file
+
+        if not file.endswith(target):
+            continue
+
+        if any(folder in file.split("/") for folder in ignored_folders):
+            continue
+
+        return file
 
     return "Unknown"
