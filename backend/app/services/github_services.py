@@ -11,6 +11,7 @@ from app.utils.entry_point_detector import detect_entry_point
 from app.utils.dependency_detector import detect_dependencies
 from app.utils.language_detector import detect_language
 from app.utils.architecture_detector import detect_architecture
+from app.utils.summary_generator import generate_summary
 
 def analyze_repository(repo):
 
@@ -37,6 +38,7 @@ def analyze_repository(repo):
         dependencies = detect_dependencies(cloned_path,files["files"])
         language = detect_language(files["files"])
         architecture = detect_architecture(files["files"])
+        summary = generate_summary(language["primary_language"],framework,architecture,dependencies)
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -61,5 +63,6 @@ def analyze_repository(repo):
     "entry_point": entry_point,
     "dependencies": dependencies,
     "architecture": architecture,
+    "summary": summary,
     **files
 }
