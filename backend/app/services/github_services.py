@@ -13,6 +13,7 @@ from app.utils.language_detector import detect_language
 from app.utils.architecture_detector import detect_architecture
 from app.utils.summary_generator import generate_summary
 from app.utils.health_score import calculate_health_score
+from app.utils.api_detector import detect_api_endpoints
 
 def analyze_repository(repo):
 
@@ -41,6 +42,7 @@ def analyze_repository(repo):
         architecture = detect_architecture(files["files"])
         summary = generate_summary(language["primary_language"],framework,architecture,dependencies)
         health_score = calculate_health_score(framework,entry_point,dependencies,architecture)
+        api_endpoints = detect_api_endpoints(cloned_path,files["files"])
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -67,6 +69,7 @@ def analyze_repository(repo):
     "architecture": architecture,
     "summary": summary,
     "health_score": health_score,
+    "api_endpoints": api_endpoints,
     **files
 }
  
