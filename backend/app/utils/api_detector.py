@@ -29,18 +29,25 @@ def detect_api_endpoints(repo_path, files):
 
             for method in methods:
 
-                pattern = f'@app.{method}("'
+                prefixes = [
+                    "app",
+                    "router"
+                ]
 
-                if pattern in stripped:
+                for prefix in prefixes:
 
-                    start = stripped.find('("') + 2
-                    end = stripped.find('")')
+                    pattern = f'@{prefix}.{method}("'
 
-                    endpoint = stripped[start:end]
+                    if pattern in stripped:
 
-                    endpoints.append({
-                        "method": method.upper(),
-                        "path": endpoint
-                    })
+                        start = stripped.find('("') + 2
+                        end = stripped.find('")')
+
+                        endpoint = stripped[start:end]
+
+                        endpoints.append({
+                            "method": method.upper(),
+                            "path": endpoint
+                        })
 
     return endpoints
