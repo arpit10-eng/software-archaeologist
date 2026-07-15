@@ -32,7 +32,10 @@ def detect_code_structure(repo_path, files):
 
                 functions.append(function_name)
 
+    classes = sorted(set(classes))
+    functions = sorted(set(functions))
+
     return {
         "classes": classes,
         "functions": functions
-    }
+}
