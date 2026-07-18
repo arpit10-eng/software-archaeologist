@@ -16,6 +16,7 @@ from app.utils.health_score import calculate_health_score
 from app.utils.api_detector import detect_api_endpoints
 from app.utils.code_structure_detector import detect_code_structure
 from app.utils.dependency_graph import detect_dependency_graph
+from app.utils.complexity_analyzer import analyze_complexity
 
 def analyze_repository(repo):
 
@@ -47,6 +48,7 @@ def analyze_repository(repo):
         api_endpoints = detect_api_endpoints(cloned_path,files["files"])
         code_structure = detect_code_structure(cloned_path,files["files"])
         dependency_graph = detect_dependency_graph(cloned_path,files["files"])
+        complexity = analyze_complexity(cloned_path,files["files"])
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -76,6 +78,7 @@ def analyze_repository(repo):
     "api_endpoints": api_endpoints,
     "code_structure": code_structure,
     "dependency_graph": dependency_graph,
+    "complexity": complexity,
     **files
 }
  
