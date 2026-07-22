@@ -18,6 +18,7 @@ from app.utils.code_structure_detector import detect_code_structure
 from app.utils.dependency_graph import detect_dependency_graph
 from app.utils.complexity_analyzer import analyze_complexity
 from app.utils.circular_dependency import detect_circular_dependencies
+from app.utils.quality_report import generate_quality_report
 
 def analyze_repository(repo):
 
@@ -51,6 +52,7 @@ def analyze_repository(repo):
         dependency_graph = detect_dependency_graph(cloned_path,files["files"])
         complexity = analyze_complexity(cloned_path,files["files"])
         circular_dependencies = detect_circular_dependencies(dependency_graph)
+        quality_report = generate_quality_report(framework,architecture,dependencies)
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -82,6 +84,7 @@ def analyze_repository(repo):
     "dependency_graph": dependency_graph,
     "complexity": complexity,
     "circular_dependencies": circular_dependencies,
+    "quality_report": quality_report,
     **files
 }
  
