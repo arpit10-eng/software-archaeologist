@@ -52,7 +52,7 @@ def analyze_repository(repo):
         dependency_graph = detect_dependency_graph(cloned_path,files["files"])
         complexity = analyze_complexity(cloned_path,files["files"])
         circular_dependencies = detect_circular_dependencies(dependency_graph)
-        quality_report = generate_quality_report(framework,architecture,dependencies)
+        quality_report = generate_quality_report(framework,architecture,dependencies,files["files"])
 
     api_url = repo.github_url.replace(
         "https://github.com/",
