@@ -19,6 +19,7 @@ from app.utils.dependency_graph import detect_dependency_graph
 from app.utils.complexity_analyzer import analyze_complexity
 from app.utils.circular_dependency import detect_circular_dependencies
 from app.utils.quality_report import generate_quality_report
+from app.utils.security_analyzer import analyze_security
 
 def analyze_repository(repo):
 
@@ -53,6 +54,8 @@ def analyze_repository(repo):
         complexity = analyze_complexity(cloned_path,files["files"])
         circular_dependencies = detect_circular_dependencies(dependency_graph)
         quality_report = generate_quality_report(framework,architecture,dependencies,files["files"])
+        security_issues = analyze_security(cloned_path,files["files"])  
+        
 
     api_url = repo.github_url.replace(
         "https://github.com/",
@@ -85,6 +88,7 @@ def analyze_repository(repo):
     "complexity": complexity,
     "circular_dependencies": circular_dependencies,
     "quality_report": quality_report,
+    "security_issues": security_issues,
     **files
 }
  
