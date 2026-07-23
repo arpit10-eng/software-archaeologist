@@ -30,6 +30,18 @@ def generate_quality_report(
             strengths.append("Repository contains documentation")
             break
 
+    # requirements.txt Check
+    requirements_found = False
+
+    for file in files:
+        if file.endswith("requirements.txt"):
+            strengths.append("Contains dependency configuration")
+            requirements_found = True
+            break
+
+    if not requirements_found:
+        warnings.append("No requirements.txt found")
+
     # Dependency Check
     if not dependencies:
         warnings.append("No dependencies detected")
