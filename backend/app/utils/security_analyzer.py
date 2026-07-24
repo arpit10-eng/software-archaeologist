@@ -11,12 +11,17 @@ def analyze_security(repo_path, files):
         if not file.endswith(".py"):
             continue
 
+        if os.path.basename(file) == "security_analyzer.py":
+            continue
+        
         absolute_path = os.path.join(repo_path, file)
 
         with open(absolute_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         for line_number, line in enumerate(lines, start=1):
+
+            lower_line = line.lower()
 
             # Detect eval()
             if "eval(" in line:
@@ -67,5 +72,28 @@ def analyze_security(repo_path, files):
                     "severity": "Medium",
                     "recommendation": "Validate user input before calling subprocess.call(). Avoid shell=True whenever possible."
                 })
+
+            # Detect hardcoded passwords
+            password_keywords = [
+                "password",
+                "passwd",
+                "pwd"
+            ]
+
+            for keyword in password_keywords:
+
+                if keyword in lower_line and "=" in line:
+
+                    if '"' in line or "'" in line:
+
+                        security_issues.append({
+                            "file": file,
+                            "line": line_number,
+                            "issue": "Possible hardcoded password detected",
+                            "severity": "High",
+                            "recommendation": "Store passwords in environment variables or a secure secret manager instead of hardcoding them."
+                        })
+
+                        break
 
     return security_issues
