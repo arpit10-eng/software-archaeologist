@@ -1,4 +1,74 @@
 import os
+import re
+
+SECURITY_RULES = [
+    {
+        "pattern": r"password\s*=\s*['\"].+['\"]",
+        "issue": "Hardcoded Password",
+        "severity": "High",
+        "recommendation": "Store passwords in environment variables."
+    },
+    {
+        "pattern": r"(api[_-]?key)\s*=\s*['\"].+['\"]",
+        "issue": "Hardcoded API Key",
+        "severity": "High",
+        "recommendation": "Store API keys in environment variables."
+    },
+    {
+        "pattern": r"(token|access_token)\s*=\s*['\"].+['\"]",
+        "issue": "Hardcoded Token",
+        "severity": "High",
+        "recommendation": "Store tokens securely."
+    },
+    {
+        "pattern": r"(secret|secret_key|jwt_secret)\s*=\s*['\"].+['\"]",
+        "issue": "Hardcoded Secret",
+        "severity": "High",
+        "recommendation": "Store secrets in environment variables."
+    },
+    {
+        "pattern": r"(aws_access_key|aws_secret_access_key)\s*=\s*['\"].+['\"]",
+        "issue": "AWS Credentials",
+        "severity": "Critical",
+        "recommendation": "Never commit AWS credentials."
+    },
+    {
+        "pattern": r"(database_url|db_password)\s*=\s*['\"].+['\"]",
+        "issue": "Database Credentials",
+        "severity": "High",
+        "recommendation": "Store database credentials securely."
+    },
+    {
+        "pattern": r"-----BEGIN (RSA )?PRIVATE KEY-----",
+        "issue": "Private Key Found",
+        "severity": "Critical",
+        "recommendation": "Never commit private keys."
+    },
+    {
+        "pattern": r"subprocess\.(run|call)\(",
+        "issue": "Use of subprocess detected",
+        "severity": "Medium",
+        "recommendation": "Validate user input before executing subprocess commands."
+    },
+    {
+        "pattern": r"os\.system\(",
+        "issue": "Use of os.system() detected",
+        "severity": "Medium",
+        "recommendation": "Use subprocess.run() with validated arguments instead."
+    },
+    {
+        "pattern": r"\beval\(",
+        "issue": "Use of eval() detected",
+        "severity": "High",
+        "recommendation": "Avoid eval(); use safer alternatives."
+    },
+    {
+        "pattern": r"\bexec\(",
+        "issue": "Use of exec() detected",
+        "severity": "High",
+        "recommendation": "Avoid exec() unless absolutely necessary."
+    }
+]
 
 
 def analyze_security(repo_path, files):
@@ -11,89 +81,54 @@ def analyze_security(repo_path, files):
         if not file.endswith(".py"):
             continue
 
+        # Skip scanning this analyzer itself
         if os.path.basename(file) == "security_analyzer.py":
             continue
-        
+
         absolute_path = os.path.join(repo_path, file)
 
-        with open(absolute_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        try:
+            with open(absolute_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception:
+            continue
+
+        in_docstring = False
 
         for line_number, line in enumerate(lines, start=1):
 
-            lower_line = line.lower()
+            stripped = line.strip()
 
-            # Detect eval()
-            if "eval(" in line:
-                security_issues.append({
-                    "file": file,
-                    "line": line_number,
-                    "issue": "Use of eval() detected",
-                    "severity": "High",
-                    "recommendation": "Avoid eval(). Use safer alternatives such as ast.literal_eval() when appropriate."
-                })
+            # Ignore blank lines
+            if not stripped:
+                continue
 
-            # Detect exec()
-            if "exec(" in line:
-                security_issues.append({
-                    "file": file,
-                    "line": line_number,
-                    "issue": "Use of exec() detected",
-                    "severity": "High",
-                    "recommendation": "Avoid exec() unless absolutely necessary. Prefer explicit function calls."
-                })
+            # Ignore comments
+            if stripped.startswith("#"):
+                continue
 
-            # Detect os.system()
-            if "os.system(" in line:
-                security_issues.append({
-                    "file": file,
-                    "line": line_number,
-                    "issue": "Use of os.system() detected",
-                    "severity": "Medium",
-                    "recommendation": "Use subprocess.run() with validated arguments instead of os.system()."
-                })
+            # Handle triple-quoted docstrings
+            if stripped.startswith('"""') or stripped.startswith("'''"):
+                in_docstring = not in_docstring
+                continue
 
-            # Detect subprocess.run()
-            if "subprocess.run(" in line:
-                security_issues.append({
-                    "file": file,
-                    "line": line_number,
-                    "issue": "Use of subprocess.run() detected",
-                    "severity": "Medium",
-                    "recommendation": "Validate user input before passing arguments to subprocess.run(). Avoid shell=True unless absolutely necessary."
-                })
+            if in_docstring:
+                continue
 
-            # Detect subprocess.call()
-            if "subprocess.call(" in line:
-                security_issues.append({
-                    "file": file,
-                    "line": line_number,
-                    "issue": "Use of subprocess.call() detected",
-                    "severity": "Medium",
-                    "recommendation": "Validate user input before calling subprocess.call(). Avoid shell=True whenever possible."
-                })
+            for rule in SECURITY_RULES:
 
-            # Detect hardcoded passwords
-            password_keywords = [
-                "password",
-                "passwd",
-                "pwd"
-            ]
+                if re.search(rule["pattern"], line, re.IGNORECASE):
 
-            for keyword in password_keywords:
+                    security_issues.append({
+                        "file": file,
+                        "line": line_number,
+                        "code": stripped,
+                        "issue": rule["issue"],
+                        "severity": rule["severity"],
+                        "recommendation": rule["recommendation"]
+                    })
 
-                if keyword in lower_line and "=" in line:
-
-                    if '"' in line or "'" in line:
-
-                        security_issues.append({
-                            "file": file,
-                            "line": line_number,
-                            "issue": "Possible hardcoded password detected",
-                            "severity": "High",
-                            "recommendation": "Store passwords in environment variables or a secure secret manager instead of hardcoding them."
-                        })
-
-                        break
+                    # Prevent duplicate reports for the same line
+                    break
 
     return security_issues
