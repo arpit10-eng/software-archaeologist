@@ -22,6 +22,7 @@ from app.utils.quality_report import generate_quality_report
 from app.utils.security_analyzer import analyze_security
 from app.utils.security_summary import generate_security_summary
 from app.utils.repository_metrics import generate_repository_metrics
+from app.utils.code_smell_detector import detect_code_smells
 
 def analyze_repository(repo):
 
@@ -59,6 +60,8 @@ def analyze_repository(repo):
         security_issues = analyze_security(cloned_path,files["files"])  
         security_summary = generate_security_summary(security_issues)
         repository_metrics = generate_repository_metrics(cloned_path,files["files"])
+        code_smells = detect_code_smells(cloned_path,files["files"])
+
         
 
     api_url = repo.github_url.replace(
@@ -95,6 +98,7 @@ def analyze_repository(repo):
     "security_issues": security_issues,
     "security_summary": security_summary,
     "repository_metrics": repository_metrics,
+    "code_smells": code_smells,
     **files
 }
  
