@@ -23,6 +23,7 @@ from app.utils.security_analyzer import analyze_security
 from app.utils.security_summary import generate_security_summary
 from app.utils.repository_metrics import generate_repository_metrics
 from app.utils.code_smell_detector import detect_code_smells
+from app.utils.dead_code_detector import detect_dead_code
 
 def analyze_repository(repo):
 
@@ -61,6 +62,7 @@ def analyze_repository(repo):
         security_summary = generate_security_summary(security_issues)
         repository_metrics = generate_repository_metrics(cloned_path,files["files"])
         code_smells = detect_code_smells(cloned_path,files["files"])
+        dead_code = detect_dead_code(cloned_path, files)
 
         
 
@@ -99,6 +101,7 @@ def analyze_repository(repo):
     "security_summary": security_summary,
     "repository_metrics": repository_metrics,
     "code_smells": code_smells,
+    "dead_code": dead_code,
     **files
 }
  
