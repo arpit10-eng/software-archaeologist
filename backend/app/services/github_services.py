@@ -102,6 +102,7 @@ def analyze_repository(repo):
     "repository_metrics": repository_metrics,
     "code_smells": code_smells,
     "dead_code": dead_code,
+    "analyzer_version": "1.1.0",
     **files
 }
  
