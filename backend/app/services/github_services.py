@@ -24,6 +24,7 @@ from app.utils.security_summary import generate_security_summary
 from app.utils.repository_metrics import generate_repository_metrics
 from app.utils.code_smell_detector import detect_code_smells
 from app.utils.dead_code_detector import detect_dead_code
+from app.utils.maintainability_analyzer import generate_maintainability
 
 def analyze_repository(repo):
 
@@ -63,6 +64,7 @@ def analyze_repository(repo):
         repository_metrics = generate_repository_metrics(cloned_path,files["files"])
         code_smells = detect_code_smells(cloned_path,files["files"])
         dead_code = detect_dead_code(cloned_path, files)
+        maintainability = generate_maintainability(cloned_path, files["files"])
 
         
 
@@ -103,6 +105,7 @@ def analyze_repository(repo):
     "code_smells": code_smells,
     "dead_code": dead_code,
     "analyzer_version": "1.1.0",
+    "maintainability": maintainability,
     **files
 }
  
