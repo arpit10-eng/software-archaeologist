@@ -1,7 +1,7 @@
 import os
 import re
 
-SECURITY_RULES = [
+SECURITY_RULES = [  
     {
         "pattern": r"password\s*=\s*['\"].+['\"]",
         "issue": "Hardcoded Password",
