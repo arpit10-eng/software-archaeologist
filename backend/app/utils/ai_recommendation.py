@@ -8,6 +8,7 @@ def generate_ai_recommendations(
 
     recommendations = []
 
+    # Security recommendations
     for issue in security_issues:
 
         recommendations.append({
@@ -16,4 +17,52 @@ def generate_ai_recommendations(
             "recommendation": issue["recommendation"]
         })
 
-    return recommendations  
+    # Code smell recommendations
+    for smell in code_smells:
+
+        recommendations.append({
+            "priority": smell["severity"],
+            "category": "Code Quality",
+            "recommendation": smell["recommendation"]
+        })
+
+    # Dead code recommendations
+    for item in dead_code:
+
+        recommendations.append({
+            "priority": "Low",
+            "category": "Code Quality",
+            "recommendation": (
+                f"Review or remove unused function "
+                f"'{item['function']}' in {item['file']}."
+            )
+        })
+
+    # Complexity recommendation
+    longest_function = complexity.get("longest_function")
+
+    if longest_function:
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Complexity",
+            "recommendation": (
+                f"Consider breaking the function "
+                f"'{longest_function['name']}' in "
+                f"{longest_function['file']} into smaller functions."
+            )
+        })
+
+    # Circular dependency recommendation
+    if circular_dependencies.get("found"):
+
+        recommendations.append({
+            "priority": "High",
+            "category": "Architecture",
+            "recommendation": (
+                "Refactor the affected modules to remove "
+                "circular dependencies."
+            )
+        })
+
+    return recommendations
