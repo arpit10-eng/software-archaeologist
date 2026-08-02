@@ -26,6 +26,7 @@ from app.utils.code_smell_detector import detect_code_smells
 from app.utils.dead_code_detector import detect_dead_code
 from app.utils.maintainability_analyzer import generate_maintainability
 from app.utils.ai_recommendation import generate_ai_recommendations
+from app.utils.documentation_analyzer import analyze_documentation
 
 def analyze_repository(repo):
 
@@ -67,7 +68,7 @@ def analyze_repository(repo):
         dead_code = detect_dead_code(cloned_path, files)
         maintainability = generate_maintainability(cloned_path, files["files"])
         ai_recommendations = generate_ai_recommendations(   security_issues,code_smells,dead_code,complexity,circular_dependencies)
-
+        documentation = analyze_documentation(cloned_path,files["files"])
         
 
     api_url = repo.github_url.replace(
@@ -109,5 +110,6 @@ def analyze_repository(repo):
     "analyzer_version": "1.1.0",
     "maintainability": maintainability,
     "ai_recommendations": ai_recommendations,
+    "documentation": documentation,
     **files
 }
