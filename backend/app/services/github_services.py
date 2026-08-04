@@ -34,7 +34,7 @@ def analyze_repository(repo):
     if not is_valid_github_url(repo.github_url):
         raise HTTPException(
             status_code=400,
-            detail="Invalid GitHub repository URL"
+            detail="Invalid GitHub repository URL.."
         )
     
     with tempfile.TemporaryDirectory() as temp_dir:
