@@ -3,7 +3,8 @@ def generate_ai_recommendations(
     code_smells,
     dead_code,
     complexity,
-    circular_dependencies
+    circular_dependencies,
+    tests
 ):
 
     recommendations = []
@@ -65,4 +66,20 @@ def generate_ai_recommendations(
             )
         })
 
+    # Test recommendations
+    if (
+        tests["test_file_count"] == 0
+        and tests["test_function_count"] == 0
+    ):
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Testing",
+            "recommendation": (
+                "Add automated tests to improve "
+                "project reliability."
+            )
+        })
+
     return recommendations
+

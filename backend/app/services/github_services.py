@@ -28,6 +28,7 @@ from app.utils.maintainability_analyzer import generate_maintainability
 from app.utils.ai_recommendation import generate_ai_recommendations
 from app.utils.documentation_analyzer import analyze_documentation
 from app.utils.size_analyzer import analyze_repository_size
+from app.utils.test_analyzer import analyze_tests
 
 def analyze_repository(repo):
 
@@ -68,9 +69,10 @@ def analyze_repository(repo):
         code_smells = detect_code_smells(cloned_path,files["files"])
         dead_code = detect_dead_code(cloned_path, files)
         maintainability = generate_maintainability(cloned_path, files["files"])
-        ai_recommendations = generate_ai_recommendations(   security_issues,code_smells,dead_code,complexity,circular_dependencies)
+        ai_recommendations = generate_ai_recommendations(   security_issues,code_smells,dead_code,complexity,circular_dependencies,tests)
         documentation = analyze_documentation(cloned_path,files["files"])
         repository_size = analyze_repository_size(cloned_path,files["files"])
+        tests = analyze_tests(cloned_path,files["files"])
         
 
     api_url = repo.github_url.replace(
@@ -114,5 +116,6 @@ def analyze_repository(repo):
     "ai_recommendations": ai_recommendations,
     "documentation": documentation,
     "repository_size": repository_size,
+    "tests": tests,
     **files
 }
