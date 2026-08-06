@@ -4,7 +4,8 @@ def generate_ai_recommendations(
     dead_code,
     complexity,
     circular_dependencies,
-    tests
+    tests,
+    license
 ):
 
     recommendations = []
@@ -78,6 +79,17 @@ def generate_ai_recommendations(
             "recommendation": (
                 "Add automated tests to improve "
                 "project reliability."
+            )
+        })
+        # License recommendation
+    if not license["license_found"]:
+
+        recommendations.append({
+            "priority": "Low",
+            "category": "Repository",
+            "recommendation": (
+                "Add a LICENSE file to clearly define "
+                "the project's usage permissions."
             )
         })
 
