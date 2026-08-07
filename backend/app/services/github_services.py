@@ -30,6 +30,9 @@ from app.utils.documentation_analyzer import analyze_documentation
 from app.utils.size_analyzer import analyze_repository_size
 from app.utils.test_analyzer import analyze_tests
 from app.utils.license_analyzer import analyze_license
+from app.utils.ci_cd_analyzer import analyze_ci_cd
+
+
 def analyze_repository(repo):
 
     if not is_valid_github_url(repo.github_url):
@@ -74,6 +77,8 @@ def analyze_repository(repo):
         repository_size = analyze_repository_size(cloned_path,files["files"])
         tests = analyze_tests(cloned_path,files["files"])
         license = analyze_license(cloned_path,files["files"])
+        ci_cd = analyze_ci_cd(cloned_path,files["files"])
+
         
 
     api_url = repo.github_url.replace(
@@ -119,5 +124,6 @@ def analyze_repository(repo):
     "repository_size": repository_size,
     "tests": tests,
     "license": license,
+    "ci_cd": ci_cd,
     **files
 }

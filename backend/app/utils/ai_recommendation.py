@@ -5,7 +5,8 @@ def generate_ai_recommendations(
     complexity,
     circular_dependencies,
     tests,
-    license
+    license,
+    ci_cd
 ):
 
     recommendations = []
@@ -90,6 +91,16 @@ def generate_ai_recommendations(
             "recommendation": (
                 "Add a LICENSE file to clearly define "
                 "the project's usage permissions."
+            )
+        })
+    if not ci_cd["github_actions"]:
+
+        recommendations.append({
+            "priority": "Low",
+            "category": "DevOps",
+            "recommendation": (
+            "Consider adding a GitHub Actions workflow "
+            "for automated testing and continuous integration."
             )
         })
 
