@@ -64,7 +64,7 @@ def generate_ai_recommendations(
             "category": "Architecture",
             "recommendation": (
                 "Refactor the affected modules to remove "
-                "circular dependencies."
+                "circular dependencies..."
             )
         })
 
