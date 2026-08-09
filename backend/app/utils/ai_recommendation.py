@@ -6,7 +6,8 @@ def generate_ai_recommendations(
     circular_dependencies,
     tests,
     license,
-    ci_cd
+    ci_cd,
+    community
 ):
 
     recommendations = []
@@ -101,6 +102,47 @@ def generate_ai_recommendations(
             "recommendation": (
             "Consider adding a GitHub Actions workflow "
             "for automated testing and continuous integration."
+            )
+        })
+        # Community recommendations
+
+    if not community["contributing"]:
+        recommendations.append({
+            "priority": "Low",
+            "category": "Community",
+            "recommendation": (
+                "Add a CONTRIBUTING.md file to provide "
+                "guidelines for contributors."
+            )
+        })
+
+    if not community["code_of_conduct"]:
+        recommendations.append({
+            "priority": "Low",
+            "category": "Community",
+            "recommendation": (
+                "Add a CODE_OF_CONDUCT.md file to define "
+                "community standards."
+            )
+        })
+
+    if not community["issue_templates"]:
+        recommendations.append({
+            "priority": "Low",
+            "category": "Community",
+            "recommendation": (
+                "Add GitHub issue templates to standardize "
+                "bug reports and feature requests."
+            )
+        })
+
+    if not community["pull_request_template"]:
+        recommendations.append({
+            "priority": "Low",
+            "category": "Community",
+            "recommendation": (
+                "Add a pull request template to improve "
+                "the consistency of contributions."
             )
         })
 
