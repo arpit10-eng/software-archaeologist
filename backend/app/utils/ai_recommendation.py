@@ -142,7 +142,7 @@ def generate_ai_recommendations(
             "category": "Community",
             "recommendation": (
                 "Add a pull request template to improve "
-                "the consistency of contributions."
+                "the consistency of contributions.."
             )
         })
 
