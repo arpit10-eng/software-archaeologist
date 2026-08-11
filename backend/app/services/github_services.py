@@ -32,6 +32,7 @@ from app.utils.test_analyzer import analyze_tests
 from app.utils.license_analyzer import analyze_license
 from app.utils.ci_cd_analyzer import analyze_ci_cd
 from app.utils.community_analyzer import analyze_community
+from app.utils.config_analyzer import analyze_configuration
 
 
 def analyze_repository(repo):
@@ -80,6 +81,7 @@ def analyze_repository(repo):
         license = analyze_license(cloned_path,files["files"])
         ci_cd = analyze_ci_cd(cloned_path,files["files"])
         community = analyze_community(cloned_path,files["files"])
+        configuration = analyze_configuration(cloned_path,files["files"])
 
         
 
@@ -128,5 +130,6 @@ def analyze_repository(repo):
     "license": license,
     "ci_cd": ci_cd,
     "community": community,
+    "configuration": configuration,
     **files
 }

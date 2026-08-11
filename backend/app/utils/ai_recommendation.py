@@ -7,7 +7,8 @@ def generate_ai_recommendations(
     tests,
     license,
     ci_cd,
-    community
+    community,
+    configuration
 ):
 
     recommendations = []
@@ -143,6 +144,25 @@ def generate_ai_recommendations(
             "recommendation": (
                 "Add a pull request template to improve "
                 "the consistency of contributions.."
+            )
+        })
+        # Configuration recommendation
+
+    environment_files = configuration["environment_files"]
+
+    has_env = ".env" in [
+        file.split("/")[-1].replace("\\", "")
+        for file in environment_files
+    ]
+
+    if has_env and not configuration["env_example_found"]:
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Configuration",
+            "recommendation": (
+                "Add a .env.example file to document required "
+                "environment variables without exposing secrets."
             )
         })
 
