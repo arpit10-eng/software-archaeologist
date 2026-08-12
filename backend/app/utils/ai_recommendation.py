@@ -8,7 +8,8 @@ def generate_ai_recommendations(
     license,
     ci_cd,
     community,
-    configuration
+    configuration,
+    secret_exposure
 ):
 
     recommendations = []
@@ -163,6 +164,30 @@ def generate_ai_recommendations(
             "recommendation": (
                 "Add a .env.example file to document required "
                 "environment variables without exposing secrets."
+            )
+        })
+        # Secret exposure recommendations
+
+    if secret_exposure["sensitive_file_count"] > 0:
+
+        recommendations.append({
+            "priority": "High",
+            "category": "Security",
+            "recommendation": (
+                "Sensitive files were detected in the repository. "
+                "Remove them from version control and add appropriate "
+                "patterns to .gitignore."
+            )
+        })
+
+    if not secret_exposure["gitignore_found"]:
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Security",
+            "recommendation": (
+                "Add a .gitignore file to prevent sensitive and "
+                "unnecessary files from being committed."
             )
         })
 
