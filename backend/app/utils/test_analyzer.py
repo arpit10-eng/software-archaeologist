@@ -8,34 +8,50 @@ def analyze_tests(repo_path, files):
 
     for file in files:
 
-        if not file.endswith(".py"):
-            continue
+        normalized = file.replace("\\", "/")
+        filename = os.path.basename(normalized)
 
-        filename = os.path.basename(file)
-
-        if filename.startswith("test_"):
+        # Detect Python test files
+        if (
+            filename.startswith("test_")
+            or filename.endswith("_test.py")
+        ):
             test_files.append(file)
 
-        absolute_path = os.path.join(repo_path, file)
+            absolute_path = os.path.join(
+                repo_path,
+                normalized.replace("/", os.sep)
+            )
 
-        with open(absolute_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+            if os.path.isfile(absolute_path):
 
-        for line in lines:
+                try:
+                    with open(
+                        absolute_path,
+                        "r",
+                        encoding="utf-8"
+                    ) as f:
 
-            stripped = line.strip()
+                        for line in f:
 
-            if stripped.startswith("def test_"):
+                            stripped = line.strip()
 
-                function_name = (
-                    stripped.split()[1]
-                    .split("(")[0]
-                )
+                            if stripped.startswith("def test_"):
 
-                test_functions.append({
-                    "file": file,
-                    "function": function_name
-                })
+                                function_name = (
+                                    stripped
+                                    .split("(")[0]
+                                    .replace("def ", "")
+                                )
+
+                                test_functions.append(
+                                    function_name
+                                )
+
+                except (UnicodeDecodeError, OSError):
+                    continue
+
+    test_functions = sorted(set(test_functions))
 
     return {
         "test_files": test_files,

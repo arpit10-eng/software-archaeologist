@@ -190,6 +190,29 @@ def generate_ai_recommendations(
                 "unnecessary files from being committed."
             )
         })
+        # Test quality recommendations
+
+    if tests["test_file_count"] > 0 and tests["test_function_count"] == 0:
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Testing",
+            "recommendation": (
+                "Test files were detected, but no test functions were found. "
+                "Add meaningful test functions to improve test coverage."
+            )
+        })
+
+    elif tests["test_file_count"] == 0:
+
+        recommendations.append({
+            "priority": "Medium",
+            "category": "Testing",
+            "recommendation": (
+                "No test files were found. Add automated tests "
+                "to improve repository reliability."
+            )
+        })
 
     return recommendations
 
