@@ -199,7 +199,7 @@ def generate_ai_recommendations(
             "category": "Testing",
             "recommendation": (
                 "Test files were detected, but no test functions were found. "
-                "Add meaningful test functions to improve test coverage."
+                "Add meaningful test functions to improve test coverage.."
             )
         })
 
