@@ -1,30 +1,45 @@
-import os 
-
 def detect_circular_dependencies(dependency_graph):
 
     cycles = []
+    visited = set()
+    recursion_stack = set()
 
-    for file, dependencies in dependency_graph.items():
+    def dfs(file, path):
 
-        for dependency in dependencies:
+        if file in recursion_stack:
 
-            dependency_path = None
+            cycle_start = path.index(file)
+            cycle = path[cycle_start:] + [file]
 
-            for candidate in dependency_graph.keys():
+            if cycle not in cycles:
+                cycles.append(cycle)
 
-                if candidate.endswith(dependency):
-                    dependency_path = candidate
-                    break
+            return
 
-            if dependency_path:
+        if file in visited:
+            return
 
-                if os.path.basename(file) in dependency_graph[dependency_path]:
+        visited.add(file)
+        recursion_stack.add(file)
 
-                    cycles.append([
-                        os.path.basename(file),
-                        dependency,
-                        os.path.basename(file)
-                    ])
+        for dependency in dependency_graph.get(file, []):
+
+            dfs(
+                dependency,
+                path + [dependency]
+            )
+
+        recursion_stack.remove(file)
+
+    # Run DFS for every file
+    for file in dependency_graph:
+
+        if file not in visited:
+
+            dfs(
+                file,
+                [file]
+            )
 
     return {
         "found": len(cycles) > 0,

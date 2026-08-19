@@ -6,9 +6,9 @@ def detect_dependency_graph(repo_path, files):
 
     graph = {}
 
-    # --------------------------------------------------
-    # 1. Get Python files
-    # --------------------------------------------------
+    # =========================================================
+    # 1. Get all Python files
+    # =========================================================
 
     python_files = [
         file.replace("\\", "/")
@@ -16,9 +16,9 @@ def detect_dependency_graph(repo_path, files):
         if file.endswith(".py")
     ]
 
-    # --------------------------------------------------
+    # =========================================================
     # 2. Create module -> file mapping
-    # --------------------------------------------------
+    # =========================================================
 
     module_map = {}
 
@@ -26,32 +26,41 @@ def detect_dependency_graph(repo_path, files):
 
         normalized_file = file.replace("\\", "/")
 
+        # Remove .py
         module_path = normalized_file[:-3]
 
+        # Handle __init__.py
         if module_path.endswith("/__init__"):
             module_path = module_path[:-9]
 
+        # Convert path into Python module format
+        #
+        # backend/app/services/github_services.py
+        #
+        # becomes
+        #
+        # backend.app.services.github_services
+
         module_path = module_path.replace("/", ".")
 
-        # Full module path
+        # Store full module path
         module_map[module_path] = normalized_file
 
-        # Map:
-        # backend.app.services.github_services
+        # Also support imports starting with app.
         #
-        # to:
+        # backend.app.services.github_services
+        #              ↓
         # app.services.github_services
 
         if module_path.startswith("backend."):
 
-            app_module = module_path[
-                len("backend."):]
-            
+            app_module = module_path[len("backend."):]
+
             module_map[app_module] = normalized_file
 
-    # --------------------------------------------------
+    # =========================================================
     # 3. Analyze every Python file
-    # --------------------------------------------------
+    # =========================================================
 
     for file in python_files:
 
@@ -59,7 +68,7 @@ def detect_dependency_graph(repo_path, files):
 
         absolute_path = os.path.join(
             repo_path,
-            file
+            file.replace("/", os.sep)
         )
 
         try:
@@ -78,15 +87,15 @@ def detect_dependency_graph(repo_path, files):
 
             continue
 
-        # --------------------------------------------------
+        # =====================================================
         # 4. Detect imports
-        # --------------------------------------------------
+        # =====================================================
 
         for node in ast.walk(tree):
 
-            # ----------------------------------------------
+            # -------------------------------------------------
             # import x
-            # ----------------------------------------------
+            # -------------------------------------------------
 
             if isinstance(node, ast.Import):
 
@@ -96,9 +105,7 @@ def detect_dependency_graph(repo_path, files):
 
                     if module_name in module_map:
 
-                        dependency = module_map[
-                            module_name
-                        ]
+                        dependency = module_map[module_name]
 
                         if dependency != file:
 
@@ -106,9 +113,9 @@ def detect_dependency_graph(repo_path, files):
                                 dependency
                             )
 
-            # ----------------------------------------------
+            # -------------------------------------------------
             # from x import y
-            # ----------------------------------------------
+            # -------------------------------------------------
 
             elif isinstance(node, ast.ImportFrom):
 
@@ -117,11 +124,10 @@ def detect_dependency_graph(repo_path, files):
 
                 module_name = node.module
 
+                # Direct module match
                 if module_name in module_map:
 
-                    dependency = module_map[
-                        module_name
-                    ]
+                    dependency = module_map[module_name]
 
                     if dependency != file:
 
@@ -129,9 +135,11 @@ def detect_dependency_graph(repo_path, files):
                             dependency
                         )
 
-                else:
+                # -------------------------------------------------
+                # Try parent modules
+                # -------------------------------------------------
 
-                    # Try parent modules
+                else:
 
                     parts = module_name.split(".")
 
@@ -141,9 +149,7 @@ def detect_dependency_graph(repo_path, files):
 
                         if candidate in module_map:
 
-                            dependency = module_map[
-                                candidate
-                            ]
+                            dependency = module_map[candidate]
 
                             if dependency != file:
 
@@ -155,9 +161,9 @@ def detect_dependency_graph(repo_path, files):
 
                         parts.pop()
 
-        # --------------------------------------------------
+        # =====================================================
         # 5. Remove duplicate dependencies
-        # --------------------------------------------------
+        # =====================================================
 
         graph[file] = sorted(
             set(graph[file])
