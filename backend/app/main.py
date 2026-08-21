@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from app.models.repository import RepositoryRequest
 from app.services.github_services import analyze_repository
+from app.database.database import Base, engine
+from app.database.models import RepositoryAnalysis
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
