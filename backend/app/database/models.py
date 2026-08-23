@@ -1,18 +1,17 @@
 from sqlalchemy import Column, Integer, String, Text
-
 from app.database.database import Base
 
 
 class RepositoryAnalysis(Base):
 
-    __tablename__ = "repository_analysis"
+    __tablename__ = "repository_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
 
-    repository_url = Column(String, nullable=False)
+    repository = Column(String, nullable=False)
 
-    branch = Column(String, default="main")
+    branch = Column(String, nullable=False)
 
-    health_score = Column(Integer)
+    primary_language = Column(String, nullable=True)
 
-    summary = Column(Text)
+    analysis_json = Column(Text, nullable=False)

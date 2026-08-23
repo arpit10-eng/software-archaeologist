@@ -1,8 +1,12 @@
 import requests
 import tempfile
 import os
+import json
 
 from fastapi import HTTPException
+
+from app.database.database import SessionLocal
+from app.database.models import RepositoryAnalysis
 
 from app.services.git_services import clone_repository
 from app.services.file_services import scan_repository
@@ -244,7 +248,7 @@ def analyze_repository(repo):
         # 19. License Analysis
         # =====================================================
 
-        license = analyze_license(
+        license_info = analyze_license(
             cloned_path,
             files["files"]
         )
@@ -286,24 +290,7 @@ def analyze_repository(repo):
         )
 
         # =====================================================
-        # 24. HEALTH SCORE 2.0
-        # =====================================================
-        #
-        # Health Score 2.0 considers:
-        #
-        # Security
-        # Testing
-        # Code Quality
-        # Documentation
-        # Maintainability
-        # Architecture
-        # CI/CD
-        # Community
-        # License
-        # Configuration
-        # Secret Exposure
-        # Repository Metrics
-        #
+        # 24. Health Score 2.0
         # =====================================================
 
         health_score = calculate_health_score(
@@ -319,7 +306,7 @@ def analyze_repository(repo):
             circular_dependencies,
             ci_cd,
             community,
-            license,
+            license_info,
             configuration,
             secret_exposure,
             repository_metrics
@@ -336,7 +323,7 @@ def analyze_repository(repo):
             complexity,
             circular_dependencies,
             tests,
-            license,
+            license_info,
             ci_cd,
             community,
             configuration,
@@ -372,75 +359,59 @@ def analyze_repository(repo):
         )
 
     # =========================================================
-    # 27. Final API Response
+    # 27. Create Final Analysis Result
     # =========================================================
-
-    return {
+    result = {
         "status": "success",
-
         "repository": repo.github_url,
-
         "branch": repo.branch,
-
         "primary_language": language["primary_language"],
-
         "languages": language["languages"],
-
         "framework": framework,
-
         "entry_point": entry_point,
-
         "dependencies": dependencies,
-
         "architecture": architecture,
-
         "summary": summary,
-
         "health_score": health_score,
-
         "api_endpoints": api_endpoints,
-
         "code_structure": code_structure,
-
         "dependency_graph": dependency_graph,
-
         "complexity": complexity,
-
         "circular_dependencies": circular_dependencies,
-
         "quality_report": quality_report,
-
         "security_issues": security_issues,
-
         "security_summary": security_summary,
-
         "repository_metrics": repository_metrics,
-
         "code_smells": code_smells,
-
         "dead_code": dead_code,
-
         "analyzer_version": "2.0.0",
-
         "maintainability": maintainability,
-
         "ai_recommendations": ai_recommendations,
-
         "documentation": documentation,
-
         "repository_size": repository_size,
-
         "tests": tests,
-
         "license": license,
-
         "ci_cd": ci_cd,
-
         "community": community,
-
         "configuration": configuration,
-
         "secret_exposure": secret_exposure,
-
         **files
     }
+
+    db = SessionLocal()
+
+    try:
+        analysis_record = RepositoryAnalysis(
+            repository=repo.github_url,
+            branch=repo.branch,
+            primary_language=language["primary_language"],
+            analysis_json=json.dumps(result, default=str)
+        )
+
+        db.add(analysis_record)
+        db.commit()
+
+    finally:
+        db.close()
+
+    return result
