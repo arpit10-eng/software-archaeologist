@@ -47,7 +47,7 @@ from app.utils.secret_exposure_analyzer import analyze_secret_exposure
 def analyze_repository(repo):
 
     # =========================================================
-    # 1. Validate GitHub URL
+    # 1. Validate GitHub URL....
     # =========================================================
 
     if not is_valid_github_url(repo.github_url):
