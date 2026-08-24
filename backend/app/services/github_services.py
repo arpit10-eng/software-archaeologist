@@ -18,7 +18,9 @@ from app.utils.dependency_detector import detect_dependencies
 from app.utils.language_detector import detect_language
 from app.utils.architecture_detector import detect_architecture
 from app.utils.summary_generator import generate_summary
-from app.utils.health_score import calculate_health_score
+
+from app.services.health.health_score_service import calculate_health_score
+
 from app.utils.api_detector import detect_api_endpoints
 from app.utils.code_structure_detector import detect_code_structure
 from app.utils.dependency_graph import detect_dependency_graph
@@ -253,6 +255,10 @@ def analyze_repository(repo):
             files["files"]
         )
 
+        # Make sure health scoring always receives a dictionary.
+        if not isinstance(license_info, dict):
+            license_info = {}
+
         # =====================================================
         # 20. CI/CD Analysis
         # =====================================================
@@ -294,22 +300,19 @@ def analyze_repository(repo):
         # =====================================================
 
         health_score = calculate_health_score(
-            framework,
-            entry_point,
-            dependencies,
-            architecture,
-            security_issues,
-            tests,
-            code_smells,
-            documentation,
-            maintainability,
-            circular_dependencies,
-            ci_cd,
-            community,
-            license_info,
-            configuration,
-            secret_exposure,
-            repository_metrics
+            security_summary=security_summary,
+            tests=tests,
+            code_smells=code_smells,
+            complexity=complexity,
+            documentation=documentation,
+            maintainability=maintainability,
+            architecture=architecture,
+            ci_cd=ci_cd,
+            community=community,
+            license_data=license_info,
+            configuration=configuration,
+            secret_exposure=secret_exposure,
+            repository_metrics=repository_metrics
         )
 
         # =====================================================
@@ -361,51 +364,78 @@ def analyze_repository(repo):
     # =========================================================
     # 27. Create Final Analysis Result
     # =========================================================
+
     result = {
         "status": "success",
         "repository": repo.github_url,
         "branch": repo.branch,
+
         "primary_language": language["primary_language"],
         "languages": language["languages"],
+
         "framework": framework,
         "entry_point": entry_point,
         "dependencies": dependencies,
         "architecture": architecture,
+
         "summary": summary,
+
         "health_score": health_score,
+
         "api_endpoints": api_endpoints,
         "code_structure": code_structure,
         "dependency_graph": dependency_graph,
+
         "complexity": complexity,
         "circular_dependencies": circular_dependencies,
+
         "quality_report": quality_report,
+
         "security_issues": security_issues,
         "security_summary": security_summary,
+
         "repository_metrics": repository_metrics,
+
         "code_smells": code_smells,
         "dead_code": dead_code,
+
         "analyzer_version": "2.0.0",
+
         "maintainability": maintainability,
         "ai_recommendations": ai_recommendations,
+
         "documentation": documentation,
         "repository_size": repository_size,
         "tests": tests,
-        "license": license,
+
+        # IMPORTANT:
+        # Use license_info, NOT license
+        "license": license_info,
+
         "ci_cd": ci_cd,
         "community": community,
         "configuration": configuration,
         "secret_exposure": secret_exposure,
+
         **files
     }
+
+    # =========================================================
+    # 28. Save Analysis To Database
+    # =========================================================
 
     db = SessionLocal()
 
     try:
+
         analysis_record = RepositoryAnalysis(
             repository=repo.github_url,
             branch=repo.branch,
             primary_language=language["primary_language"],
-            analysis_json=json.dumps(result, default=str)
+            analysis_json=json.dumps(
+                result,
+                default=str
+            )
         )
 
         db.add(analysis_record)
@@ -413,5 +443,9 @@ def analyze_repository(repo):
 
     finally:
         db.close()
+
+    # =========================================================
+    # 29. Return Final Result
+    # =========================================================
 
     return result
