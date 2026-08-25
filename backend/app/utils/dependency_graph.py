@@ -26,40 +26,79 @@ def detect_dependency_graph(repo_path, files):
 
         normalized_file = file.replace("\\", "/")
 
-        # Remove .py
         module_path = normalized_file[:-3]
 
         # Handle __init__.py
         if module_path.endswith("/__init__"):
             module_path = module_path[:-9]
 
-        # Convert path into Python module format
-        #
-        # backend/app/services/github_services.py
-        #
-        # becomes
-        #
-        # backend.app.services.github_services
-
         module_path = module_path.replace("/", ".")
 
-        # Store full module path
+        # Full module path
         module_map[module_path] = normalized_file
 
-        # Also support imports starting with app.
-        #
-        # backend.app.services.github_services
-        #              ↓
-        # app.services.github_services
-
+        # Support imports starting with app.
         if module_path.startswith("backend."):
-
             app_module = module_path[len("backend."):]
-
             module_map[app_module] = normalized_file
 
     # =========================================================
-    # 3. Analyze every Python file
+    # 3. Helper: resolve relative imports
+    # =========================================================
+
+    def resolve_relative_import(current_file, module_name, level):
+
+        current_module = current_file[:-3].replace("/", ".")
+
+        # Remove filename from current module
+        current_parts = current_module.split(".")
+
+        if current_parts[-1] == "__init__":
+            current_parts.pop()
+        else:
+            current_parts.pop()
+
+        # Move up according to relative import level
+        for _ in range(level - 1):
+            if current_parts:
+                current_parts.pop()
+
+        if module_name:
+            current_parts.extend(module_name.split("."))
+
+        candidate = ".".join(current_parts)
+
+        return module_map.get(candidate)
+
+    # =========================================================
+    # 4. Helper: resolve normal imports
+    # =========================================================
+
+    def resolve_absolute_import(module_name):
+
+        if not module_name:
+            return None
+
+        # Exact match
+        if module_name in module_map:
+            return module_map[module_name]
+
+        # Try parent modules
+        parts = module_name.split(".")
+
+        while parts:
+
+            candidate = ".".join(parts)
+
+            if candidate in module_map:
+                return module_map[candidate]
+
+            parts.pop()
+
+        return None
+
+    # =========================================================
+    # 5. Analyze every Python file
     # =========================================================
 
     for file in python_files:
@@ -88,7 +127,7 @@ def detect_dependency_graph(repo_path, files):
             continue
 
         # =====================================================
-        # 4. Detect imports
+        # 6. Detect imports
         # =====================================================
 
         for node in ast.walk(tree):
@@ -101,17 +140,15 @@ def detect_dependency_graph(repo_path, files):
 
                 for alias in node.names:
 
-                    module_name = alias.name
+                    dependency = resolve_absolute_import(
+                        alias.name
+                    )
 
-                    if module_name in module_map:
+                    if dependency and dependency != file:
 
-                        dependency = module_map[module_name]
-
-                        if dependency != file:
-
-                            graph[file].append(
-                                dependency
-                            )
+                        graph[file].append(
+                            dependency
+                        )
 
             # -------------------------------------------------
             # from x import y
@@ -119,50 +156,30 @@ def detect_dependency_graph(repo_path, files):
 
             elif isinstance(node, ast.ImportFrom):
 
-                if node.module is None:
-                    continue
+                # Relative import
+                if node.level > 0:
 
-                module_name = node.module
+                    dependency = resolve_relative_import(
+                        file,
+                        node.module,
+                        node.level
+                    )
 
-                # Direct module match
-                if module_name in module_map:
-
-                    dependency = module_map[module_name]
-
-                    if dependency != file:
-
-                        graph[file].append(
-                            dependency
-                        )
-
-                # -------------------------------------------------
-                # Try parent modules
-                # -------------------------------------------------
-
+                # Absolute import
                 else:
 
-                    parts = module_name.split(".")
+                    dependency = resolve_absolute_import(
+                        node.module
+                    )
 
-                    while parts:
+                if dependency and dependency != file:
 
-                        candidate = ".".join(parts)
-
-                        if candidate in module_map:
-
-                            dependency = module_map[candidate]
-
-                            if dependency != file:
-
-                                graph[file].append(
-                                    dependency
-                                )
-
-                            break
-
-                        parts.pop()
+                    graph[file].append(
+                        dependency
+                    )
 
         # =====================================================
-        # 5. Remove duplicate dependencies
+        # 7. Remove duplicate dependencies
         # =====================================================
 
         graph[file] = sorted(
