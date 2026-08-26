@@ -2,26 +2,151 @@ import os
 import ast
 
 
+# =============================================================
+# Complexity Visitor
+# =============================================================
+
+class ComplexityVisitor(ast.NodeVisitor):
+
+    def __init__(self):
+        self.complexity = 1
+
+    def visit_If(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_For(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_While(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_IfExp(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_Try(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_With(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_BoolOp(self, node):
+        self.complexity += len(node.values) - 1
+        self.generic_visit(node)
+
+    def visit_Match(self, node):
+        self.complexity += len(node.cases)
+        self.generic_visit(node)
+
+    def visit_Assert(self, node):
+        self.complexity += 1
+        self.generic_visit(node)
+
+
+# =============================================================
+# Calculate Function Complexity
+# =============================================================
+
+def calculate_function_complexity(function):
+
+    visitor = ComplexityVisitor()
+
+    for node in function.body:
+
+        # -----------------------------------------------------
+        # Important:
+        # Do not include nested function/class complexity
+        # inside the parent function.
+        # -----------------------------------------------------
+
+        if isinstance(
+            node,
+            (
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+                ast.ClassDef
+            )
+        ):
+            continue
+
+        visitor.visit(node)
+
+    return visitor.complexity
+
+
+# =============================================================
+# Function Type
+# =============================================================
+
+def get_function_type(function):
+
+    if isinstance(function, ast.AsyncFunctionDef):
+        return "async"
+
+    return "function"
+
+
+# =============================================================
+# Severity
+# =============================================================
+
+def determine_severity(complexity, lines):
+
+    if complexity >= 15 or lines > 100:
+        return "Critical"
+
+    if complexity > 10 or lines > 75:
+        return "High"
+
+    if complexity > 7 or lines > 50:
+        return "Medium"
+
+    return "Low"
+
+
+# =============================================================
+# Main Analyzer
+# =============================================================
+
 def analyze_complexity(repo_path, files):
 
     total_lines = 0
     largest_file = ""
     largest_file_lines = 0
-    python_file_count = 0
 
-    longest_function_name = ""
-    longest_function_file = ""
-    longest_function_lines = 0
+    python_file_count = 0
 
     total_functions = 0
     total_classes = 0
 
     total_complexity = 0
 
+    longest_function_name = ""
+    longest_function_file = ""
+    longest_function_lines = 0
+
     function_details = []
+    file_details = []
 
     # =========================================================
-    # 1. Analyze Python files
+    # 1. Analyze Python Files
     # =========================================================
 
     for file in files:
@@ -48,7 +173,10 @@ def analyze_complexity(repo_path, files):
 
             lines = source.splitlines()
 
-        except (OSError, UnicodeDecodeError):
+        except (
+            OSError,
+            UnicodeDecodeError
+        ):
 
             continue
 
@@ -66,7 +194,7 @@ def analyze_complexity(repo_path, files):
             largest_file = os.path.basename(file)
 
         # =====================================================
-        # 3. Parse Python AST
+        # 3. Parse AST
         # =====================================================
 
         try:
@@ -107,8 +235,10 @@ def analyze_complexity(repo_path, files):
 
         total_functions += len(functions)
 
+        file_complexity = 0
+
         # =====================================================
-        # 6. Analyze Every Function
+        # 6. Analyze Functions
         # =====================================================
 
         for function in functions:
@@ -130,69 +260,58 @@ def analyze_complexity(repo_path, files):
                 function_lines = 1
 
             # -------------------------------------------------
-            # Cyclomatic Complexity
+            # Function complexity
             # -------------------------------------------------
 
-            complexity = 1
-
-            for node in ast.walk(function):
-
-                if isinstance(
-                    node,
-                    (
-                        ast.If,
-                        ast.For,
-                        ast.While,
-                        ast.IfExp,
-                        ast.Try,
-                        ast.ExceptHandler,
-                        ast.With,
-                        ast.AsyncWith
-                    )
-                ):
-                    complexity += 1
-
-                elif isinstance(
-                    node,
-                    ast.BoolOp
-                ):
-
-                    # Every additional boolean condition
-                    # increases complexity.
-
-                    complexity += (
-                        len(node.values) - 1
-                    )
-
-                elif isinstance(
-                    node,
-                    (
-                        ast.comprehension,
-                    )
-                ):
-
-                    complexity += 1
+            complexity = calculate_function_complexity(
+                function
+            )
 
             total_complexity += complexity
 
+            file_complexity += complexity
+
             # -------------------------------------------------
-            # Longest Function
+            # Function type
+            # -------------------------------------------------
+
+            function_type = get_function_type(
+                function
+            )
+
+            # -------------------------------------------------
+            # Method detection
+            # -------------------------------------------------
+
+            is_method = False
+
+            for parent in ast.walk(tree):
+
+                if isinstance(parent, ast.ClassDef):
+
+                    for child in parent.body:
+
+                        if child is function:
+
+                            is_method = True
+                            break
+
+            # -------------------------------------------------
+            # Longest function
             # -------------------------------------------------
 
             if function_lines > longest_function_lines:
 
                 longest_function_lines = function_lines
 
-                longest_function_name = (
-                    function.name
-                )
+                longest_function_name = function.name
 
                 longest_function_file = (
                     os.path.basename(file)
                 )
 
             # -------------------------------------------------
-            # Store Function Information
+            # Function details
             # -------------------------------------------------
 
             function_details.append(
@@ -200,12 +319,28 @@ def analyze_complexity(repo_path, files):
                     "name": function.name,
                     "file": os.path.basename(file),
                     "lines": function_lines,
-                    "complexity": complexity
+                    "complexity": complexity,
+                    "type": function_type,
+                    "is_method": is_method
                 }
             )
 
+        # =====================================================
+        # 7. File Details
+        # =====================================================
+
+        file_details.append(
+            {
+                "file": os.path.basename(file),
+                "lines": line_count,
+                "functions": len(functions),
+                "classes": len(classes),
+                "complexity": file_complexity
+            }
+        )
+
     # =========================================================
-    # 7. Average Lines Per File
+    # 8. Average Lines Per File
     # =========================================================
 
     if python_file_count > 0:
@@ -220,7 +355,7 @@ def analyze_complexity(repo_path, files):
         average_lines_per_file = 0
 
     # =========================================================
-    # 8. Average Cyclomatic Complexity
+    # 9. Average Complexity
     # =========================================================
 
     if total_functions > 0:
@@ -235,7 +370,7 @@ def analyze_complexity(repo_path, files):
         average_complexity = 0
 
     # =========================================================
-    # 9. Complexity Level
+    # 10. Complexity Level
     # =========================================================
 
     if average_complexity <= 3:
@@ -255,7 +390,7 @@ def analyze_complexity(repo_path, files):
         complexity_level = "Very High"
 
     # =========================================================
-    # 10. Find Most Complex Functions
+    # 11. Most Complex Functions
     # =========================================================
 
     most_complex_functions = sorted(
@@ -265,7 +400,7 @@ def analyze_complexity(repo_path, files):
     )[:10]
 
     # =========================================================
-    # 11. Find Long Functions
+    # 12. Long Functions
     # =========================================================
 
     long_functions = [
@@ -275,52 +410,133 @@ def analyze_complexity(repo_path, files):
     ]
 
     # =========================================================
-    # 12. Function Complexity Warnings
+    # 13. Complexity Warnings
     # =========================================================
 
     complexity_warnings = []
 
     for function in function_details:
 
-        if function["complexity"] > 10:
+        complexity = function["complexity"]
+        lines = function["lines"]
+
+        severity = determine_severity(
+            complexity,
+            lines
+        )
+
+        # -----------------------------------------------------
+        # Critical
+        # -----------------------------------------------------
+
+        if severity == "Critical":
+
+            if complexity >= 15 and lines > 100:
+
+                recommendation = (
+                    "Function is both highly complex and very long. "
+                    "Break it into smaller functions."
+                )
+
+            elif complexity >= 15:
+
+                recommendation = (
+                    "Function has very high cyclomatic complexity. "
+                    "Break conditional logic into smaller functions."
+                )
+
+            else:
+
+                recommendation = (
+                    "Function is too long. "
+                    "Split it into smaller functions."
+                )
 
             complexity_warnings.append(
                 {
                     "file": function["file"],
                     "function": function["name"],
-                    "complexity": function["complexity"],
-                    "severity": "High",
-                    "recommendation":
-                        "Break this function into smaller functions."
+                    "complexity": complexity,
+                    "lines": lines,
+                    "severity": severity,
+                    "recommendation": recommendation
                 }
             )
 
-        elif function["complexity"] > 7:
+        # -----------------------------------------------------
+        # High
+        # -----------------------------------------------------
+
+        elif severity == "High":
+
+            if complexity > 10:
+
+                recommendation = (
+                    "Break this function into smaller functions."
+                )
+
+            else:
+
+                recommendation = (
+                    "Reduce the size of this function."
+                )
 
             complexity_warnings.append(
                 {
                     "file": function["file"],
                     "function": function["name"],
-                    "complexity": function["complexity"],
-                    "severity": "Medium",
+                    "complexity": complexity,
+                    "lines": lines,
+                    "severity": severity,
+                    "recommendation": recommendation
+                }
+            )
+
+        # -----------------------------------------------------
+        # Medium
+        # -----------------------------------------------------
+
+        elif severity == "Medium":
+
+            complexity_warnings.append(
+                {
+                    "file": function["file"],
+                    "function": function["name"],
+                    "complexity": complexity,
+                    "lines": lines,
+                    "severity": severity,
                     "recommendation":
                         "Consider simplifying this function."
                 }
             )
 
     # =========================================================
-    # 13. Return Complexity Report
+    # 14. Most Complex Files
+    # =========================================================
+
+    most_complex_files = sorted(
+        file_details,
+        key=lambda x: x["complexity"],
+        reverse=True
+    )[:10]
+
+    # =========================================================
+    # 15. Return Report
     # =========================================================
 
     return {
 
-        "total_lines": total_lines,
+        "total_lines":
+            total_lines,
 
-        "largest_file": largest_file,
+        "largest_file":
+            largest_file,
 
-        "largest_file_lines": largest_file_lines,
+        "largest_file_lines":
+            largest_file_lines,
 
-        "total_python_files": python_file_count,
+        "total_python_files":
+            python_file_count,
 
         "average_lines_per_file":
             average_lines_per_file,
@@ -341,9 +557,12 @@ def analyze_complexity(repo_path, files):
             complexity_level,
 
         "longest_function": {
-            "name": longest_function_name,
-            "file": longest_function_file,
-            "lines": longest_function_lines
+            "name":
+                longest_function_name,
+            "file":
+                longest_function_file,
+            "lines":
+                longest_function_lines
         },
 
         "long_functions":
@@ -351,6 +570,9 @@ def analyze_complexity(repo_path, files):
 
         "most_complex_functions":
             most_complex_functions,
+
+        "most_complex_files":
+            most_complex_files,
 
         "complexity_warnings":
             complexity_warnings
