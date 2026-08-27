@@ -1,29 +1,32 @@
 from fastapi import FastAPI
-import json
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.models.repository import RepositoryRequest
-
 from app.services.github_services import analyze_repository
 
-from app.database.database import Base, engine, SessionLocal
-from app.database.models import RepositoryAnalysis
+from app.database.database import Base, engine
+from app.database import models
 
-
-# =========================================================
-# Create Database Tables
-# =========================================================
 
 Base.metadata.create_all(bind=engine)
 
 
+app = FastAPI()
+
+
 # =========================================================
-# Create FastAPI Application
+# CORS Configuration
 # =========================================================
 
-app = FastAPI(
-    title="Software Archaeologist",
-    description="AI-powered GitHub repository analysis system",
-    version="2.0.0"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -40,7 +43,7 @@ def root():
 
 
 # =========================================================
-# Analyze Repository
+# Repository Analysis
 # =========================================================
 
 @app.post("/repository/analyze")
@@ -50,11 +53,15 @@ def analyze(repo: RepositoryRequest):
 
 
 # =========================================================
-# Get Repository Analysis History
+# Repository History
 # =========================================================
 
 @app.get("/repository/history/{analysis_id}")
 def get_repository_analysis(analysis_id: int):
+
+    from app.database.database import SessionLocal
+    from app.database.models import RepositoryAnalysis
+    import json
 
     db = SessionLocal()
 
@@ -62,9 +69,7 @@ def get_repository_analysis(analysis_id: int):
 
         record = (
             db.query(RepositoryAnalysis)
-            .filter(
-                RepositoryAnalysis.id == analysis_id
-            )
+            .filter(RepositoryAnalysis.id == analysis_id)
             .first()
         )
 
@@ -75,9 +80,7 @@ def get_repository_analysis(analysis_id: int):
                 "message": "Analysis not found"
             }
 
-        return json.loads(
-            record.analysis_json
-        )
+        return json.loads(record.analysis_json)
 
     finally:
 
