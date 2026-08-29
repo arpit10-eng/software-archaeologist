@@ -316,3 +316,129 @@ footer {
     padding: 20px;
   }
 }
+/* =========================================================
+   ANALYSIS DASHBOARD
+========================================================= */
+
+.analysis-dashboard {
+  margin-top: 40px;
+}
+
+.analysis-dashboard > h2 {
+  margin-bottom: 30px;
+  font-size: 30px;
+}
+
+.section-title {
+  margin-top: 45px;
+  margin-bottom: 20px;
+  font-size: 22px;
+  color: #172554;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.result-card {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+  min-width: 0;
+}
+
+.result-card h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #172554;
+}
+
+.result-card pre {
+  background: #f4f6f8;
+  color: #1f2937;
+  padding: 15px;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.5;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.full-width {
+  margin-top: 25px;
+}
+
+.full-width pre {
+  max-height: 400px;
+}
+
+.ai-card {
+  border-left: 5px solid #2563eb;
+}
+
+.analyzer-version {
+  text-align: center;
+  margin: 30px 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   BETTER DASHBOARD CARDS
+========================================================= */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.score-card,
+.info-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+  min-width: 0;
+}
+
+.info-card p {
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    font-size: 20px;
+  }
+
+}
