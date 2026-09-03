@@ -1,1357 +1,2092 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
+const API_BASE = "http://127.0.0.1:8000";
+
+function getCategoryScores(analysis) {
+  if (!analysis) {
+    return {};
+  }
+
+  if (
+    analysis.category_percentages &&
+    typeof analysis.category_percentages === "object"
+  ) {
+    return analysis.category_percentages;
+  }
+
+  if (
+    analysis.health_score?.category_percentages &&
+    typeof analysis.health_score.category_percentages === "object"
+  ) {
+    return analysis.health_score.category_percentages;
+  }
+
+  if (
+    analysis.health?.category_percentages &&
+    typeof analysis.health.category_percentages === "object"
+  ) {
+    return analysis.health.category_percentages;
+  }
+
+  return {};
+}
+
+function getLanguageData(analysis) {
+  if (!analysis) {
+    return {};
+  }
+
+  if (
+    analysis.languages &&
+    typeof analysis.languages === "object"
+  ) {
+    return analysis.languages;
+  }
+
+  if (
+    analysis.language_distribution &&
+    typeof analysis.language_distribution === "object"
+  ) {
+    return analysis.language_distribution;
+  }
+
+  return {};
+}
+
+function getDependencyGraph(analysis) {
+  if (!analysis) {
+    return null;
+  }
+
+  return (
+    analysis.dependency_graph ??
+    analysis.dependencyGraph ??
+    analysis.dependencies_graph ??
+    null
+  );
+}
+
 function App() {
-  const [githubUrl, setGithubUrl] = useState("");
-  const [branch, setBranch] = useState("main");
+  const [repositoryUrl, setRepositoryUrl] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
 
-  const analyzeRepository = async () => {
-    if (!githubUrl.trim()) {
-      setError("Please enter a GitHub repository URL.");
+  const [historyError, setHistoryError] = useState("");
+  const [analysisError, setAnalysisError] = useState("");
+
+  const [selectedAnalysisId, setSelectedAnalysisId] =
+    useState(null);
+
+  /*
+   * =========================================================
+   * HEALTH SCORE
+   * =========================================================
+   *
+   * Backend returns:
+   *
+   * health_score: {
+   *     overall_score: 73.33,
+   *     health_level: "Fair",
+   *     ...
+   * }
+   *
+   * Therefore we must read health_score.overall_score.
+   */
+
+  const healthScore = useMemo(() => {
+    if (!analysis) {
+      return null;
+    }
+
+    const score =
+      typeof analysis.health_score === "number"
+        ? analysis.health_score
+        : analysis.health_score?.overall_score ??
+          analysis.overall_score ??
+          analysis.health?.overall_score;
+
+    return typeof score === "number"
+      ? score.toFixed(2)
+      : "N/A";
+  }, [analysis]);
+
+  const healthLevel = useMemo(() => {
+    if (!analysis) {
+      return "Unknown";
+    }
+
+    return (
+      analysis.health_score?.health_level ??
+      analysis.health_level ??
+      analysis.health?.health_level ??
+      "Unknown"
+    );
+  }, [analysis]);
+
+  const repositoryName = useMemo(() => {
+    if (!analysis?.repository) {
+      return "Unknown Repository";
+    }
+
+    const parts = analysis.repository
+      .replace(/\/$/, "")
+      .split("/");
+
+    return parts[parts.length - 1] || "Repository";
+  }, [analysis]);
+
+  const categoryScores = useMemo(
+    () => getCategoryScores(analysis),
+    [analysis]
+  );
+
+  const languageData = useMemo(
+    () => getLanguageData(analysis),
+    [analysis]
+  );
+
+  const dependencyGraph = useMemo(
+    () => getDependencyGraph(analysis),
+    [analysis]
+  );
+
+  const sortedCategories = useMemo(() => {
+    return Object.entries(categoryScores)
+      .map(([name, value]) => [
+        name,
+        Number(value) || 0,
+      ])
+      .sort((a, b) => b[1] - a[1]);
+  }, [categoryScores]);
+
+  const sortedLanguages = useMemo(() => {
+    return Object.entries(languageData)
+      .map(([name, value]) => [
+        name,
+        Number(value) || 0,
+      ])
+      .sort((a, b) => b[1] - a[1]);
+  }, [languageData]);
+
+  const totalLanguageFiles = useMemo(() => {
+    return sortedLanguages.reduce(
+      (sum, [, value]) => sum + value,
+      0
+    );
+  }, [sortedLanguages]);
+
+  /*
+   * =========================================================
+   * LOAD HISTORY
+   * =========================================================
+   */
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    setHistoryError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/repository/history?limit=20`
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load history (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+
+      setHistory(data.results || []);
+    } catch (error) {
+      console.error(error);
+
+      setHistoryError(
+        "Unable to load analysis history."
+      );
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  /*
+   * =========================================================
+   * LOAD SAVED ANALYSIS
+   * =========================================================
+   */
+
+  async function loadAnalysis(analysisId) {
+    setLoading(true);
+    setAnalysisError("");
+    setSelectedAnalysisId(analysisId);
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/repository/history/${analysisId}`
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to load analysis (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+
+      setAnalysis(data);
+      setRepositoryUrl(data.repository || "");
+    } catch (error) {
+      console.error(error);
+
+      setAnalysisError(
+        "Unable to load this analysis."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /*
+   * =========================================================
+   * ANALYZE REPOSITORY
+   * =========================================================
+   */
+
+  async function analyzeRepository() {
+    if (!repositoryUrl.trim()) {
+      setAnalysisError(
+        "Please enter a GitHub repository URL."
+      );
       return;
     }
 
     setLoading(true);
-    setError("");
-    setResult(null);
+    setAnalysisError("");
+    setSelectedAnalysisId(null);
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/repository/analyze",
+        `${API_BASE}/repository/analyze?repository_url=${encodeURIComponent(
+          repositoryUrl.trim()
+        )}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            github_url: githubUrl,
-            branch: branch,
-          }),
         }
       );
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.detail || "Repository analysis failed.");
+        const errorData =
+          await response.json().catch(
+            () => null
+          );
+
+        throw new Error(
+          errorData?.detail ||
+            `Analysis failed (${response.status})`
+        );
       }
 
-      setResult(data);
-    } catch (err) {
-      setError(err.message || "Something went wrong.");
+      const data = await response.json();
+
+      setAnalysis(data);
+
+      await loadHistory();
+    } catch (error) {
+      console.error(error);
+
+      setAnalysisError(
+        error.message ||
+          "Unable to analyze repository."
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const getScoreClass = (score) => {
-    if (score >= 80) return "score-good";
-    if (score >= 60) return "score-average";
-    return "score-poor";
-  };
+  /*
+   * =========================================================
+   * SHOW LATEST ANALYSIS
+   * =========================================================
+   */
 
-  const getSeverityClass = (severity) => {
-    if (!severity) return "";
-
-    return severity.toLowerCase().replace(/\s+/g, "-");
-  };
-
-  const formatName = (value) => {
-    if (!value) return "";
-
-    return value
-      .replace(/_/g, " ")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase());
-  };
-
-  const renderList = (items, emptyMessage = "None detected.") => {
-    if (!items || items.length === 0) {
-      return <p className="empty">{emptyMessage}</p>;
+  function showLatestAnalysis() {
+    if (history.length === 0) {
+      setSelectedAnalysisId(null);
+      return;
     }
 
-    return (
-      <ul className="simple-list">
-        {items.map((item, index) => (
-          <li key={index}>{typeof item === "string" ? item : JSON.stringify(item)}</li>
-        ))}
-      </ul>
-    );
-  };
-
-  const renderArchitecture = () => {
-    const architecture = result?.architecture;
-
-    if (!architecture) {
-      return <p className="empty">No architecture information available.</p>;
-    }
-
-    return (
-      <div className="architecture-grid">
-        {Object.entries(architecture).map(([key, values]) => (
-          <div className="architecture-item" key={key}>
-            <h4>{formatName(key)}</h4>
-
-            {Array.isArray(values) ? (
-              values.length > 0 ? (
-                <ul>
-                  {values.map((value, index) => (
-                    <li key={index}>{value}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty">None</p>
-              )
-            ) : (
-              <p>{String(values)}</p>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderDependencyGraph = () => {
-    const graph = result?.dependency_graph;
-
-    if (!graph || Object.keys(graph).length === 0) {
-      return <p className="empty">No dependency graph available.</p>;
-    }
-
-    return (
-      <div className="dependency-graph">
-        {Object.entries(graph).map(([file, dependencies]) => (
-          <div className="dependency-node" key={file}>
-            <div className="node-file">{file}</div>
-
-            <div className="node-arrow">↓</div>
-
-            {dependencies && dependencies.length > 0 ? (
-              <div className="node-dependencies">
-                {dependencies.map((dependency, index) => (
-                  <span className="dependency-tag" key={index}>
-                    {dependency}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="no-dependency">No dependencies</span>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderComplexity = () => {
-    const complexity = result?.complexity;
-
-    if (!complexity) {
-      return <p className="empty">No complexity information available.</p>;
-    }
-
-    return (
-      <>
-        <div className="metric-grid">
-          <div className="metric-card">
-            <span>Total Lines</span>
-            <strong>{complexity.total_lines ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Python Files</span>
-            <strong>{complexity.total_python_files ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Total Functions</span>
-            <strong>{complexity.total_functions ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Total Classes</span>
-            <strong>{complexity.total_classes ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Total Cyclomatic Complexity</span>
-            <strong>{complexity.total_cyclomatic_complexity ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Average Complexity</span>
-            <strong>
-              {complexity.average_cyclomatic_complexity ?? 0}
-            </strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Complexity Level</span>
-            <strong>{complexity.complexity_level || "Unknown"}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Largest File</span>
-            <strong>{complexity.largest_file || "Unknown"}</strong>
-          </div>
-        </div>
-
-        {complexity.longest_function && (
-          <div className="highlight-box">
-            <h4>Longest Function</h4>
-            <p>
-              <strong>{complexity.longest_function.name}</strong>
-              {" "}in{" "}
-              <strong>{complexity.longest_function.file}</strong>
-            </p>
-            <p>
-              Lines: {complexity.longest_function.lines}
-            </p>
-          </div>
-        )}
-
-        {complexity.most_complex_functions?.length > 0 && (
-          <div className="table-container">
-            <h4>Most Complex Functions</h4>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Function</th>
-                  <th>File</th>
-                  <th>Lines</th>
-                  <th>Complexity</th>
-                  <th>Severity</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {complexity.most_complex_functions.map((item, index) => (
-                  <tr key={index}>
-                    <td>{item.name}</td>
-                    <td>{item.file}</td>
-                    <td>{item.lines}</td>
-                    <td>{item.complexity}</td>
-                    <td>
-                      <span
-                        className={`severity ${getSeverityClass(
-                          item.severity
-                        )}`}
-                      >
-                        {item.severity || "N/A"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {complexity.complexity_warnings?.length > 0 && (
-          <div className="warning-list">
-            <h4>Complexity Warnings</h4>
-
-            {complexity.complexity_warnings.map((warning, index) => (
-              <div className="warning-item" key={index}>
-                <div className="warning-header">
-                  <strong>{warning.function}</strong>
-
-                  <span
-                    className={`severity ${getSeverityClass(
-                      warning.severity
-                    )}`}
-                  >
-                    {warning.severity}
-                  </span>
-                </div>
-
-                <p>
-                  <strong>File:</strong> {warning.file}
-                </p>
-
-                <p>
-                  <strong>Complexity:</strong> {warning.complexity}
-                </p>
-
-                <p>{warning.recommendation}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  };
-
-  const renderSecurity = () => {
-    const summary = result?.security_summary;
-    const issues = result?.security_issues || [];
-
-    return (
-      <>
-        {summary && (
-          <div className="security-summary">
-            <div>
-              <span>Total</span>
-              <strong>{summary.total_issues ?? 0}</strong>
-            </div>
-
-            <div>
-              <span>Critical</span>
-              <strong>{summary.critical ?? 0}</strong>
-            </div>
-
-            <div>
-              <span>High</span>
-              <strong>{summary.high ?? 0}</strong>
-            </div>
-
-            <div>
-              <span>Medium</span>
-              <strong>{summary.medium ?? 0}</strong>
-            </div>
-
-            <div>
-              <span>Low</span>
-              <strong>{summary.low ?? 0}</strong>
-            </div>
-          </div>
-        )}
-
-        <div className="issue-list">
-          {issues.length === 0 ? (
-            <p className="empty">No security issues detected.</p>
-          ) : (
-            issues.map((issue, index) => (
-              <div className="issue-card" key={index}>
-                <div className="issue-header">
-                  <strong>{issue.issue}</strong>
-
-                  <span
-                    className={`severity ${getSeverityClass(
-                      issue.severity
-                    )}`}
-                  >
-                    {issue.severity}
-                  </span>
-                </div>
-
-                <p>
-                  <strong>File:</strong> {issue.file}
-                </p>
-
-                <p>
-                  <strong>Line:</strong> {issue.line}
-                </p>
-
-                <p>
-                  <strong>Recommendation:</strong>{" "}
-                  {issue.recommendation}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-      </>
-    );
-  };
-
-  const renderCodeSmells = () => {
-    const smells = result?.code_smells || [];
-
-    if (smells.length === 0) {
-      return <p className="empty">No code smells detected.</p>;
-    }
-
-    return (
-      <div className="smell-list">
-        {smells.map((smell, index) => (
-          <div className="smell-card" key={index}>
-            <div className="issue-header">
-              <strong>{smell.issue}</strong>
-
-              <span
-                className={`severity ${getSeverityClass(
-                  smell.severity
-                )}`}
-              >
-                {smell.severity}
-              </span>
-            </div>
-
-            <p>
-              <strong>File:</strong> {smell.file}
-            </p>
-
-            <p>
-              <strong>Recommendation:</strong>{" "}
-              {smell.recommendation}
-            </p>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderRecommendations = () => {
-    const recommendations = result?.ai_recommendations || [];
-
-    if (recommendations.length === 0) {
-      return <p className="empty">No recommendations available.</p>;
-    }
-
-    return (
-      <div className="recommendation-list">
-        {recommendations.map((item, index) => (
-          <div className="recommendation-card" key={index}>
-            <div className="recommendation-top">
-              <span className="recommendation-category">
-                {item.category}
-              </span>
-
-              <span
-                className={`severity ${getSeverityClass(
-                  item.priority
-                )}`}
-              >
-                {item.priority}
-              </span>
-            </div>
-
-            <p>{item.recommendation}</p>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderDependencyList = () => {
-    const dependencies = result?.dependencies || [];
-
-    if (dependencies.length === 0) {
-      return <p className="empty">No dependencies detected.</p>;
-    }
-
-    return (
-      <div className="tag-container">
-        {dependencies.map((dependency, index) => (
-          <span className="tag" key={index}>
-            {dependency}
-          </span>
-        ))}
-      </div>
-    );
-  };
-
-  const renderApiEndpoints = () => {
-    const endpoints = result?.api_endpoints || [];
-
-    if (endpoints.length === 0) {
-      return <p className="empty">No API endpoints detected.</p>;
-    }
-
-    return (
-      <div className="endpoint-list">
-        {endpoints.map((endpoint, index) => (
-          <div className="endpoint" key={index}>
-            <span className={`method ${endpoint.method?.toLowerCase()}`}>
-              {endpoint.method}
-            </span>
-
-            <code>{endpoint.path}</code>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderHealthBreakdown = () => {
-    const breakdown = result?.health_score?.breakdown;
-
-    if (!breakdown) {
-      return <p className="empty">No score breakdown available.</p>;
-    }
-
-    return (
-      <div className="health-breakdown">
-        {Object.entries(breakdown).map(([key, value]) => (
-          <div className="health-row" key={key}>
-            <div className="health-label">
-              <span>{formatName(key)}</span>
-              <strong>{value}</strong>
-            </div>
-
-            <div className="progress">
-              <div
-                className="progress-fill"
-                style={{
-                  width: `${Math.min(Math.max(value * 10, 0), 100)}%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderTests = () => {
-    const tests = result?.tests;
-
-    if (!tests) {
-      return <p className="empty">No test information available.</p>;
-    }
-
-    return (
-      <>
-        <div className="metric-grid">
-          <div className="metric-card">
-            <span>Test Files</span>
-            <strong>{tests.test_file_count ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Test Functions</span>
-            <strong>{tests.test_function_count ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Test Score</span>
-            <strong>{tests.test_quality?.score ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Test Quality</span>
-            <strong>{tests.test_quality?.level || "Unknown"}</strong>
-          </div>
-        </div>
-
-        <h4>Test Files</h4>
-        {renderList(tests.test_files)}
-
-        <h4>Test Functions</h4>
-        {renderList(tests.test_functions)}
-      </>
-    );
-  };
-
-  const renderDocumentation = () => {
-    const documentation = result?.documentation;
-
-    if (!documentation) {
-      return <p className="empty">No documentation information available.</p>;
-    }
-
-    return (
-      <>
-        <div className="metric-grid">
-          <div className="metric-card">
-            <span>Documentation Files</span>
-            <strong>
-              {documentation.documentation_file_count ?? 0}
-            </strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Comments</span>
-            <strong>{documentation.comments ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Docstrings</span>
-            <strong>{documentation.docstrings ?? 0}</strong>
-          </div>
-
-          <div className="metric-card">
-            <span>Quality Score</span>
-            <strong>
-              {documentation.documentation_quality?.score ?? 0}
-            </strong>
-          </div>
-        </div>
-
-        <div className="highlight-box">
-          <h4>
-            {documentation.documentation_quality?.level || "Unknown"}
-          </h4>
-
-          <p>
-            {documentation.documentation_quality?.reason ||
-              "No documentation assessment available."}
-          </p>
-        </div>
-
-        <h4>Documentation Files</h4>
-        {renderList(documentation.documentation_files)}
-      </>
-    );
-  };
-
-  const renderMaintainability = () => {
-    const maintainability = result?.maintainability;
-
-    if (!maintainability) {
-      return <p className="empty">No maintainability data available.</p>;
-    }
-
-    return (
-      <div className="metric-grid">
-        <div className="metric-card">
-          <span>Excellent Files</span>
-          <strong>{maintainability.excellent ?? 0}</strong>
-        </div>
-
-        <div className="metric-card">
-          <span>Good Files</span>
-          <strong>{maintainability.good ?? 0}</strong>
-        </div>
-
-        <div className="metric-card">
-          <span>Poor Files</span>
-          <strong>{maintainability.poor ?? 0}</strong>
-        </div>
-
-        <div className="metric-card">
-          <span>Worst File</span>
-          <strong>{maintainability.worst_file || "None"}</strong>
-        </div>
-      </div>
-    );
-  };
-
-  const renderCommunity = () => {
-    const community = result?.community;
-
-    if (!community) {
-      return <p className="empty">No community information available.</p>;
-    }
-
-    return (
-      <div className="boolean-grid">
-        <div className={community.contributing ? "bool yes" : "bool no"}>
-          <strong>CONTRIBUTING.md</strong>
-          <span>{community.contributing ? "Present" : "Missing"}</span>
-        </div>
-
-        <div className={community.code_of_conduct ? "bool yes" : "bool no"}>
-          <strong>Code of Conduct</strong>
-          <span>
-            {community.code_of_conduct ? "Present" : "Missing"}
-          </span>
-        </div>
-
-        <div
-          className={
-            community.pull_request_template ? "bool yes" : "bool no"
-          }
-        >
-          <strong>Pull Request Template</strong>
-          <span>
-            {community.pull_request_template ? "Present" : "Missing"}
-          </span>
-        </div>
-
-        <div
-          className={
-            community.issue_template_count > 0 ? "bool yes" : "bool no"
-          }
-        >
-          <strong>Issue Templates</strong>
-          <span>{community.issue_template_count ?? 0}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderConfiguration = () => {
-    const configuration = result?.configuration;
-
-    if (!configuration) {
-      return <p className="empty">No configuration information available.</p>;
-    }
-
-    return (
-      <div className="boolean-grid">
-        <div
-          className={
-            configuration.env_example_found ? "bool yes" : "bool no"
-          }
-        >
-          <strong>.env.example</strong>
-          <span>
-            {configuration.env_example_found ? "Found" : "Missing"}
-          </span>
-        </div>
-
-        <div
-          className={
-            configuration.environment_file_count > 0
-              ? "bool yes"
-              : "bool no"
-          }
-        >
-          <strong>Environment Files</strong>
-          <span>{configuration.environment_file_count ?? 0}</span>
-        </div>
-
-        <div
-          className={
-            configuration.config_file_count > 0 ? "bool yes" : "bool no"
-          }
-        >
-          <strong>Config Files</strong>
-          <span>{configuration.config_file_count ?? 0}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderLicense = () => {
-    const license = result?.license;
-
-    if (!license) {
-      return <p className="empty">No license information available.</p>;
-    }
-
-    return (
-      <div className="license-box">
-        <div>
-          <span>License</span>
-          <strong>{license.license}</strong>
-        </div>
-
-        <div>
-          <span>Status</span>
-          <strong>{license.status}</strong>
-        </div>
-
-        <p>{license.reason}</p>
-
-        <h4>License Files</h4>
-        {renderList(license.license_files, "No license files found.")}
-      </div>
-    );
-  };
-
-  const renderCiCd = () => {
-    const ci = result?.ci_cd;
-
-    if (!ci) {
-      return <p className="empty">No CI/CD information available.</p>;
-    }
-
-    return (
-      <div className="boolean-grid">
-        <div className={ci.github_actions ? "bool yes" : "bool no"}>
-          <strong>GitHub Actions</strong>
-          <span>{ci.github_actions ? "Configured" : "Not Configured"}</span>
-        </div>
-
-        <div className={ci.workflow_count > 0 ? "bool yes" : "bool no"}>
-          <strong>Workflow Files</strong>
-          <span>{ci.workflow_count ?? 0}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderSecretExposure = () => {
-    const secrets = result?.secret_exposure;
-
-    if (!secrets) {
-      return <p className="empty">No secret exposure information available.</p>;
-    }
-
-    return (
-      <>
-        <div className="boolean-grid">
-          <div className={secrets.gitignore_found ? "bool yes" : "bool no"}>
-            <strong>.gitignore</strong>
-            <span>{secrets.gitignore_found ? "Found" : "Missing"}</span>
-          </div>
-
-          <div
-            className={
-              secrets.sensitive_file_count === 0 ? "bool yes" : "bool no"
-            }
-          >
-            <strong>Sensitive Files</strong>
-            <span>{secrets.sensitive_file_count ?? 0}</span>
-          </div>
-        </div>
-
-        <h4>Sensitive Files</h4>
-        {renderList(secrets.sensitive_files, "No sensitive files detected.")}
-      </>
-    );
-  };
-
-  const renderRepositorySize = () => {
-    const size = result?.repository_size;
-
-    if (!size) {
-      return <p className="empty">No repository size information available.</p>;
-    }
-
-    return (
-      <div className="metric-grid">
-        <div className="metric-card">
-          <span>Total Size</span>
-          <strong>
-            {(size.total_size_bytes / 1024).toFixed(2)} KB
-          </strong>
-        </div>
-
-        <div className="metric-card">
-          <span>Largest File</span>
-          <strong>{size.largest_file}</strong>
-        </div>
-
-        <div className="metric-card">
-          <span>Largest File Size</span>
-          <strong>
-            {(size.largest_file_size_bytes / 1024).toFixed(2)} KB
-          </strong>
-        </div>
-      </div>
-    );
-  };
-
-  const renderFiles = () => {
-    const files = result?.files || [];
-
-    if (files.length === 0) {
-      return <p className="empty">No files detected.</p>;
-    }
-
-    return (
-      <div className="file-list">
-        {files.map((file, index) => (
-          <div className="file-item" key={index}>
-            <span>{file}</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+    loadAnalysis(history[0].analysis_id);
+  }
+
+  /*
+   * =========================================================
+   * INITIAL LOAD
+   * =========================================================
+   */
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   return (
     <div className="app">
-      <header className="header">
+
+      {/* Header */}
+
+      <header className="topbar">
         <div>
           <h1>Software Archaeologist</h1>
-          <p>Repository Intelligence Platform</p>
+
+          <p>
+            Repository intelligence and code health analysis
+          </p>
         </div>
       </header>
 
-      <main className="main">
-        <section className="hero">
-          <div className="hero-content">
-            <span className="eyebrow">REPOSITORY ANALYSIS</span>
 
-            <h2>Understand Any GitHub Repository</h2>
+      <main className="container">
 
-            <p>
-              Analyze architecture, dependencies, complexity, security,
-              maintainability, testing, documentation and overall repository
-              health.
-            </p>
+        {/* Analyze Repository */}
+
+        <section className="analysis-section">
+          <div className="section-heading">
+            <div>
+              <h2>Analyze Repository</h2>
+
+              <p>
+                Enter a public GitHub repository to inspect
+                its architecture, code health, dependencies,
+                security, and maintainability.
+              </p>
+            </div>
           </div>
 
-          <div className="repository-form">
+          <div className="analysis-form">
             <input
               type="text"
+              value={repositoryUrl}
+              onChange={(event) =>
+                setRepositoryUrl(
+                  event.target.value
+                )
+              }
               placeholder="https://github.com/username/repository"
-              value={githubUrl}
-              onChange={(e) => setGithubUrl(e.target.value)}
+              disabled={loading}
             />
-
-            <select
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-            >
-              <option value="main">main</option>
-              <option value="master">master</option>
-            </select>
 
             <button
               onClick={analyzeRepository}
               disabled={loading}
             >
-              {loading ? "Analyzing..." : "Analyze Repository"}
+              {loading
+                ? "Analyzing..."
+                : "Analyze Repository"}
             </button>
           </div>
 
-          {error && <div className="error">{error}</div>}
+          {analysisError && (
+            <div className="error-message">
+              {analysisError}
+            </div>
+          )}
         </section>
 
-        {!result && (
-          <section className="features">
-            <div className="section-heading">
-              <span className="eyebrow">CAPABILITIES</span>
-              <h2>What Software Archaeologist Analyzes</h2>
-            </div>
 
-            <div className="feature-grid">
-              <div className="feature-card">
-                <div className="feature-icon">🏗️</div>
-                <h3>Architecture</h3>
-                <p>
-                  Detect project structure, layers, services, models,
-                  utilities and application organization.
+        {/* Repository Dashboard */}
+
+        {analysis && (
+          <>
+
+            {/* Repository Header */}
+
+            <section className="repository-header">
+              <div>
+                <p className="eyebrow">
+                  Repository Analysis
+                </p>
+
+                <h2>{repositoryName}</h2>
+
+                <p className="repository-url">
+                  {analysis.repository}
                 </p>
               </div>
 
-              <div className="feature-card">
-                <div className="feature-icon">📦</div>
-                <h3>Dependencies</h3>
-                <p>
-                  Identify dependencies and visualize relationships between
-                  repository files.
-                </p>
-              </div>
+              <div className="repository-meta">
 
-              <div className="feature-card">
-                <div className="feature-icon">📊</div>
-                <h3>Complexity</h3>
-                <p>
-                  Measure functions, classes, lines and cyclomatic
-                  complexity.
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">🔐</div>
-                <h3>Security</h3>
-                <p>
-                  Detect potential security problems and exposed sensitive
-                  information.
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">🧪</div>
-                <h3>Testing</h3>
-                <p>
-                  Analyze test files, test functions and overall test
-                  quality.
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">🤖</div>
-                <h3>AI Recommendations</h3>
-                <p>
-                  Generate actionable recommendations for improving the
-                  repository.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {result && (
-          <div className="dashboard">
-            <section className="overview-section">
-              <div className="section-heading">
-                <span className="eyebrow">ANALYSIS COMPLETE</span>
-                <h2>Repository Overview</h2>
-              </div>
-
-              <div className="overview-grid">
-                <div className="overview-card">
-                  <span>Repository</span>
-                  <strong>{result.repository}</strong>
-                </div>
-
-                <div className="overview-card">
-                  <span>Branch</span>
-                  <strong>{result.branch}</strong>
-                </div>
-
-                <div className="overview-card">
-                  <span>Primary Language</span>
-                  <strong>{result.primary_language}</strong>
-                </div>
-
-                <div className="overview-card">
-                  <span>Framework</span>
-                  <strong>{result.framework}</strong>
-                </div>
-
-                <div className="overview-card">
-                  <span>Entry Point</span>
-                  <strong>{result.entry_point}</strong>
-                </div>
-
-                <div className="overview-card">
-                  <span>Analyzer Version</span>
-                  <strong>{result.analyzer_version}</strong>
-                </div>
-              </div>
-            </section>
-
-            <section className="dashboard-section health-section">
-              <div className="section-heading">
-                <span className="eyebrow">REPOSITORY HEALTH</span>
-                <h2>Health Score</h2>
-              </div>
-
-              <div className="health-layout">
-                <div
-                  className={`health-score ${getScoreClass(
-                    result.health_score?.overall_score
-                  )}`}
-                >
-                  <span>Overall Score</span>
+                <span>
+                  Branch:{" "}
                   <strong>
-                    {result.health_score?.overall_score ?? "--"}
-                  </strong>
-                  <p>{result.health_score?.health_level}</p>
-                </div>
-
-                <div className="health-content">
-                  {renderHealthBreakdown()}
-                </div>
-              </div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">REPOSITORY</span>
-                <h2>Repository Metrics</h2>
-              </div>
-
-              <div className="metric-grid">
-                <div className="metric-card">
-                  <span>Total Files</span>
-                  <strong>{result.total_files ?? 0}</strong>
-                </div>
-
-                <div className="metric-card">
-                  <span>Python Files</span>
-                  <strong>{result.python_files ?? 0}</strong>
-                </div>
-
-                <div className="metric-card">
-                  <span>Directories</span>
-                  <strong>
-                    {result.repository_metrics?.directories ?? 0}
-                  </strong>
-                </div>
-
-                <div className="metric-card">
-                  <span>Average File Size</span>
-                  <strong>
-                    {result.repository_metrics?.average_file_size ?? 0} B
-                  </strong>
-                </div>
-
-                <div className="metric-card">
-                  <span>Largest Directory</span>
-                  <strong>
-                    {result.repository_metrics?.largest_directory ||
+                    {analysis.branch ||
                       "Unknown"}
                   </strong>
+                </span>
+
+                <span>
+                  Language:{" "}
+                  <strong>
+                    {analysis.primary_language ||
+                      "Unknown"}
+                  </strong>
+                </span>
+
+                {analysis.created_at && (
+                  <span>
+                    Analyzed:{" "}
+                    <strong>
+                      {new Date(
+                        analysis.created_at
+                      ).toLocaleString()}
+                    </strong>
+                  </span>
+                )}
+
+              </div>
+            </section>
+
+
+            {/* Health Score */}
+
+            <section className="score-section">
+
+              <div className="score-card">
+
+                <p>
+                  Overall Health Score
+                </p>
+
+                <div className="score-value">
+                  {healthScore}
                 </div>
 
-                <div className="metric-card">
-                  <span>Markdown Files</span>
-                  <strong>{result.markdown_files ?? 0}</strong>
+                <span className="health-level">
+                  {healthLevel}
+                </span>
+
+              </div>
+
+              <div className="score-info">
+
+                <h3>
+                  Repository Health
+                </h3>
+
+                <p>
+                  This score summarizes the repository's
+                  overall engineering health across security,
+                  testing, documentation, maintainability,
+                  architecture, and other analysis categories.
+                </p>
+
+              </div>
+
+            </section>
+
+
+            {/* Basic Metrics */}
+
+            <section className="metrics-grid">
+
+              <MetricCard
+                title="Python Files"
+                value={
+                  analysis.total_python_files ??
+                  "N/A"
+                }
+              />
+
+              <MetricCard
+                title="Total Lines"
+                value={
+                  analysis.total_lines ??
+                  "N/A"
+                }
+              />
+
+              <MetricCard
+                title="Functions"
+                value={
+                  analysis.total_functions ??
+                  "N/A"
+                }
+              />
+
+              <MetricCard
+                title="Classes"
+                value={
+                  analysis.total_classes ??
+                  "N/A"
+                }
+              />
+
+            </section>
+
+
+            {/* Analytics */}
+
+            <section className="analytics-section">
+
+              <div className="section-heading">
+                <div>
+
+                  <h2>
+                    Repository Analytics
+                  </h2>
+
+                  <p>
+                    Visual breakdown of repository
+                    health, languages, complexity,
+                    and repository size.
+                  </p>
+
                 </div>
               </div>
-            </section>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SYSTEM DESIGN</span>
-                <h2>Architecture</h2>
-              </div>
 
-              <div className="result-card">{renderArchitecture()}</div>
-            </section>
+              <div className="analytics-grid">
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">PACKAGE ANALYSIS</span>
-                <h2>Dependencies</h2>
-              </div>
+                {/* Health Categories */}
 
-              <div className="result-card">
-                <h3>Detected Dependencies</h3>
-                {renderDependencyList()}
-              </div>
-            </section>
+                <div className="analytics-card">
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">RELATIONSHIPS</span>
-                <h2>Dependency Graph</h2>
-              </div>
+                  <div className="analytics-card-header">
 
-              <div className="result-card">
-                {renderDependencyGraph()}
-              </div>
-            </section>
+                    <h3>
+                      Health Categories
+                    </h3>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">CODE ANALYSIS</span>
-                <h2>Complexity Analysis</h2>
-              </div>
+                    <span>
+                      Score
+                    </span>
 
-              <div className="result-card">{renderComplexity()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">CODE STRUCTURE</span>
-                <h2>Classes & Functions</h2>
-              </div>
-
-              <div className="result-card">
-                <div className="structure-columns">
-                  <div>
-                    <h3>Classes</h3>
-                    {renderList(result.code_structure?.classes)}
                   </div>
 
-                  <div>
-                    <h3>Functions</h3>
-                    {renderList(result.code_structure?.functions)}
-                  </div>
+                  {sortedCategories.length === 0 ? (
+
+                    <div className="chart-empty">
+                      No category data available.
+                    </div>
+
+                  ) : (
+
+                    <div className="bar-chart">
+
+                      {sortedCategories.map(
+                        ([category, score]) => (
+
+                          <div
+                            className="bar-row"
+                            key={category}
+                          >
+
+                            <div className="bar-label">
+
+                              <span>
+                                {formatCategoryName(
+                                  category
+                                )}
+                              </span>
+
+                              <strong>
+                                {score.toFixed(1)}
+                              </strong>
+
+                            </div>
+
+                            <div className="bar-track">
+
+                              <div
+                                className="bar-fill"
+                                style={{
+                                  width: `${Math.min(
+                                    Math.max(
+                                      score,
+                                      0
+                                    ),
+                                    100
+                                  )}%`,
+                                }}
+                              />
+
+                            </div>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  )}
+
                 </div>
+
+
+                {/* Languages */}
+
+                <div className="analytics-card">
+
+                  <div className="analytics-card-header">
+
+                    <h3>
+                      Language Distribution
+                    </h3>
+
+                    <span>
+                      Files
+                    </span>
+
+                  </div>
+
+                  {sortedLanguages.length === 0 ? (
+
+                    <div className="chart-empty">
+                      No language data available.
+                    </div>
+
+                  ) : (
+
+                    <div className="language-chart">
+
+                      {sortedLanguages.map(
+                        ([language, count]) => {
+
+                          const percentage =
+                            totalLanguageFiles > 0
+                              ? (count /
+                                  totalLanguageFiles) *
+                                100
+                              : 0;
+
+                          return (
+
+                            <div
+                              className="language-row"
+                              key={language}
+                            >
+
+                              <div className="language-info">
+
+                                <span>
+                                  {language}
+                                </span>
+
+                                <strong>
+                                  {count}
+                                </strong>
+
+                              </div>
+
+                              <div className="language-track">
+
+                                <div
+                                  className="language-fill"
+                                  style={{
+                                    width: `${percentage}%`,
+                                  }}
+                                />
+
+                              </div>
+
+                              <span className="language-percentage">
+
+                                {percentage.toFixed(
+                                  1
+                                )}
+
+                                %
+
+                              </span>
+
+                            </div>
+
+                          );
+                        }
+                      )}
+
+                    </div>
+
+                  )}
+
+                </div>
+
               </div>
+
+
+              {/* Complexity */}
+
+              <div className="analytics-grid metrics-analytics">
+
+                <AnalyticsMetric
+                  title="Cyclomatic Complexity"
+                  value={
+                    analysis.total_cyclomatic_complexity ??
+                    analysis.complexity
+                      ?.total_cyclomatic_complexity ??
+                    "N/A"
+                  }
+                />
+
+                <AnalyticsMetric
+                  title="Average Complexity"
+                  value={
+                    analysis.average_cyclomatic_complexity ??
+                    analysis.complexity
+                      ?.average_cyclomatic_complexity ??
+                    "N/A"
+                  }
+                />
+
+                <AnalyticsMetric
+                  title="Largest File"
+                  value={
+                    analysis.largest_file_lines
+                      ? `${analysis.largest_file_lines} lines`
+                      : "N/A"
+                  }
+                />
+
+                <AnalyticsMetric
+                  title="Repository Size"
+                  value={formatBytes(
+                    analysis.total_size_bytes
+                  )}
+                />
+
+              </div>
+
             </section>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SECURITY</span>
-                <h2>Security Analysis</h2>
-              </div>
 
-              <div className="result-card">{renderSecurity()}</div>
-            </section>
+            {/* Dependency Graph */}
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">CODE QUALITY</span>
-                <h2>Code Smells</h2>
-              </div>
+            <DependencyGraph
+              graph={dependencyGraph}
+            />
 
-              <div className="result-card">{renderCodeSmells()}</div>
-            </section>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">DEPENDENCY HEALTH</span>
-                <h2>Circular Dependencies</h2>
-              </div>
+            {/* Code Explorer */}
 
-              <div className="result-card">
-                <div
-                  className={
-                    result.circular_dependencies?.found
-                      ? "status-box danger"
-                      : "status-box success"
+            <CodeExplorer
+              analysis={analysis}
+            />
+
+          </>
+        )}
+
+
+        {/* History */}
+
+        <section className="history-section">
+
+          <div className="section-heading">
+
+            <div>
+
+              <h2>
+                Analysis History
+              </h2>
+
+              <p>
+                Previous repository analyses saved
+                in the database.
+              </p>
+
+            </div>
+
+            <button
+              className="secondary-button"
+              onClick={loadHistory}
+              disabled={historyLoading}
+            >
+              {historyLoading
+                ? "Refreshing..."
+                : "Refresh"}
+            </button>
+
+          </div>
+
+          {historyError && (
+            <div className="error-message">
+              {historyError}
+            </div>
+          )}
+
+          {historyLoading &&
+          history.length === 0 ? (
+
+            <div className="empty-state">
+              Loading analysis history...
+            </div>
+
+          ) : history.length === 0 ? (
+
+            <div className="empty-state">
+              No previous analyses found.
+            </div>
+
+          ) : (
+
+            <div className="history-list">
+
+              {history.map((item) => (
+
+                <button
+                  key={item.analysis_id}
+                  className={`history-item ${
+                    selectedAnalysisId ===
+                    item.analysis_id
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    loadAnalysis(
+                      item.analysis_id
+                    )
                   }
                 >
-                  <strong>
-                    {result.circular_dependencies?.found
-                      ? "Circular Dependencies Found"
-                      : "No Circular Dependencies"}
-                  </strong>
 
-                  <span>
-                    {result.circular_dependencies?.message}
-                  </span>
+                  <div className="history-main">
 
-                  <span>
-                    Cycle Count:{" "}
-                    {result.circular_dependencies?.cycle_count ?? 0}
-                  </span>
-                </div>
+                    <strong>
+                      {getRepositoryName(
+                        item.repository
+                      )}
+                    </strong>
 
-                {result.circular_dependencies?.cycles?.length > 0 && (
-                  <div className="cycle-list">
-                    {result.circular_dependencies.cycles.map(
-                      (cycle, index) => (
-                        <div className="cycle-item" key={index}>
-                          {Array.isArray(cycle)
-                            ? cycle.join(" → ")
-                            : cycle}
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
+                    <span>
+                      {item.repository}
+                    </span>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">MAINTAINABILITY</span>
-                <h2>Maintainability</h2>
-              </div>
-
-              <div className="result-card">
-                {renderMaintainability()}
-              </div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">DOCUMENTATION</span>
-                <h2>Documentation</h2>
-              </div>
-
-              <div className="result-card">
-                {renderDocumentation()}
-              </div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">QUALITY ASSURANCE</span>
-                <h2>Testing</h2>
-              </div>
-
-              <div className="result-card">{renderTests()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">REPOSITORY POLICY</span>
-                <h2>License</h2>
-              </div>
-
-              <div className="result-card">{renderLicense()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">DEVOPS</span>
-                <h2>CI/CD</h2>
-              </div>
-
-              <div className="result-card">{renderCiCd()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">OPEN SOURCE</span>
-                <h2>Community</h2>
-              </div>
-
-              <div className="result-card">{renderCommunity()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">CONFIGURATION</span>
-                <h2>Configuration</h2>
-              </div>
-
-              <div className="result-card">{renderConfiguration()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SECRETS</span>
-                <h2>Secret Exposure</h2>
-              </div>
-
-              <div className="result-card">{renderSecretExposure()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SIZE ANALYSIS</span>
-                <h2>Repository Size</h2>
-              </div>
-
-              <div className="result-card">{renderRepositorySize()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">API ANALYSIS</span>
-                <h2>API Endpoints</h2>
-              </div>
-
-              <div className="result-card">{renderApiEndpoints()}</div>
-            </section>
-
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">QUALITY REPORT</span>
-                <h2>Repository Quality Report</h2>
-              </div>
-
-              <div className="result-card">
-                <div className="quality-columns">
-                  <div>
-                    <h3>Strengths</h3>
-                    {renderList(
-                      result.quality_report?.strengths,
-                      "No strengths detected."
-                    )}
                   </div>
 
-                  <div>
-                    <h3>Warnings</h3>
-                    {renderList(
-                      result.quality_report?.warnings,
-                      "No warnings detected."
-                    )}
+                  <div className="history-details">
+
+                    <span>
+                      {item.branch ||
+                        "Unknown branch"}
+                    </span>
+
+                    <span>
+                      {item.primary_language ||
+                        "Unknown language"}
+                    </span>
+
+                    <span>
+                      {formatDate(
+                        item.created_at
+                      )}
+                    </span>
+
                   </div>
-                </div>
-              </div>
-            </section>
 
-            <section className="dashboard-section ai-section">
-              <div className="section-heading">
-                <span className="eyebrow">INTELLIGENCE</span>
-                <h2>AI Recommendations</h2>
-              </div>
+                  <div className="history-id">
+                    #{item.analysis_id}
+                  </div>
 
-              <div className="result-card">
-                {renderRecommendations()}
-              </div>
-            </section>
+                </button>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SUMMARY</span>
-                <h2>Repository Summary</h2>
-              </div>
+              ))}
 
-              <div className="summary-card">
-                <p>{result.summary}</p>
-              </div>
-            </section>
+            </div>
 
-            <section className="dashboard-section">
-              <div className="section-heading">
-                <span className="eyebrow">SOURCE TREE</span>
-                <h2>Repository Files</h2>
-              </div>
+          )}
 
-              <div className="result-card">{renderFiles()}</div>
-            </section>
-          </div>
-        )}
+          {selectedAnalysisId !== null && (
+
+            <button
+              className="latest-button"
+              onClick={
+                showLatestAnalysis
+              }
+            >
+              View Latest Analysis
+            </button>
+
+          )}
+
+        </section>
+
       </main>
 
-      <footer>
-        <p>Software Archaeologist • Repository Intelligence Platform</p>
-      </footer>
     </div>
   );
 }
+
+
+/* =========================================================
+   DEPENDENCY GRAPH
+========================================================= */
+
+function DependencyGraph({ graph }) {
+
+  const [selectedNode, setSelectedNode] =
+    useState(null);
+
+  const normalizedGraph = useMemo(
+    () => normalizeGraph(graph),
+    [graph]
+  );
+
+  if (
+    normalizedGraph.nodes.length === 0
+  ) {
+
+    return (
+
+      <section className="dependency-section">
+
+        <div className="section-heading">
+
+          <div>
+
+            <h2>
+              Dependency Graph
+            </h2>
+
+            <p>
+              Visual representation of
+              relationships between repository
+              files and modules.
+            </p>
+
+          </div>
+
+        </div>
+
+        <div className="graph-empty">
+          No dependency relationships were
+          detected.
+        </div>
+
+      </section>
+
+    );
+  }
+
+  const positions = calculateNodePositions(
+    normalizedGraph.nodes
+  );
+
+  return (
+
+    <section className="dependency-section">
+
+      <div className="section-heading">
+
+        <div>
+
+          <h2>
+            Dependency Graph
+          </h2>
+
+          <p>
+            Click a module to inspect its
+            dependency relationships.
+          </p>
+
+        </div>
+
+        <div className="graph-stats">
+
+          <span>
+            {normalizedGraph.nodes.length} nodes
+          </span>
+
+          <span>
+            {normalizedGraph.edges.length} edges
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div className="dependency-graph-container">
+
+        <svg
+          className="dependency-graph"
+          viewBox="0 0 1000 600"
+          preserveAspectRatio="xMidYMid meet"
+        >
+
+          <defs>
+
+            <marker
+              id="arrow"
+              markerWidth="8"
+              markerHeight="8"
+              refX="7"
+              refY="4"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+
+              <path
+                d="M 0 0 L 8 4 L 0 8 z"
+                fill="currentColor"
+              />
+
+            </marker>
+
+          </defs>
+
+
+          <g className="graph-edges">
+
+            {normalizedGraph.edges.map(
+              (edge, index) => {
+
+                const source =
+                  positions[edge.source];
+
+                const target =
+                  positions[edge.target];
+
+                if (
+                  !source ||
+                  !target
+                ) {
+                  return null;
+                }
+
+                return (
+
+                  <line
+                    key={`edge-${index}`}
+                    x1={source.x}
+                    y1={source.y}
+                    x2={target.x}
+                    y2={target.y}
+                    className={
+                      selectedNode ===
+                        edge.source ||
+                      selectedNode ===
+                        edge.target
+                        ? "graph-edge highlighted"
+                        : "graph-edge"
+                    }
+                    markerEnd="url(#arrow)"
+                  />
+
+                );
+              }
+            )}
+
+          </g>
+
+
+          <g className="graph-nodes">
+
+            {normalizedGraph.nodes.map(
+              (node) => {
+
+                const position =
+                  positions[node.id];
+
+                if (!position) {
+                  return null;
+                }
+
+                const isSelected =
+                  selectedNode ===
+                  node.id;
+
+                return (
+
+                  <g
+                    key={node.id}
+                    className={
+                      isSelected
+                        ? "graph-node selected"
+                        : "graph-node"
+                    }
+                    transform={`translate(${position.x}, ${position.y})`}
+                    onClick={() =>
+                      setSelectedNode(
+                        node.id
+                      )
+                    }
+                  >
+
+                    <circle
+                      r="24"
+                    />
+
+                    <text
+                      y="42"
+                      textAnchor="middle"
+                    >
+                      {shortenNodeName(
+                        node.label
+                      )}
+                    </text>
+
+                  </g>
+
+                );
+              }
+            )}
+
+          </g>
+
+        </svg>
+
+      </div>
+
+
+      {selectedNode && (
+
+        <div className="selected-node">
+
+          <div>
+
+            <span>
+              Selected Module
+            </span>
+
+            <strong>
+              {selectedNode}
+            </strong>
+
+          </div>
+
+          <div className="selected-node-connections">
+
+            <div>
+
+              <span>
+                Depends on
+              </span>
+
+              <strong>
+                {
+                  normalizedGraph.edges.filter(
+                    (edge) =>
+                      edge.source ===
+                      selectedNode
+                  ).length
+                }
+              </strong>
+
+            </div>
+
+            <div>
+
+              <span>
+                Used by
+              </span>
+
+              <strong>
+                {
+                  normalizedGraph.edges.filter(
+                    (edge) =>
+                      edge.target ===
+                      selectedNode
+                  ).length
+                }
+              </strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+    </section>
+  );
+}
+
+
+/* =========================================================
+   CODE EXPLORER
+========================================================= */
+
+function CodeExplorer({ analysis }) {
+
+  const [searchTerm, setSearchTerm] =
+    useState("");
+
+  const [selectedFile, setSelectedFile] =
+    useState(null);
+
+  const [fileContent, setFileContent] =
+    useState("");
+
+  const [fileLoading, setFileLoading] =
+    useState(false);
+
+  const [fileError, setFileError] =
+    useState("");
+
+  const files = useMemo(() => {
+
+    if (
+      Array.isArray(
+        analysis?.file_metadata
+      )
+    ) {
+      return analysis.file_metadata;
+    }
+
+    if (
+      Array.isArray(
+        analysis?.files
+      )
+    ) {
+
+      return analysis.files.map(
+        (file) => ({
+          path: file,
+          extension:
+            getExtension(file),
+          language:
+            getLanguageFromExtension(
+              getExtension(file)
+            ),
+          size_bytes: null,
+          lines: null,
+        })
+      );
+    }
+
+    return [];
+
+  }, [analysis]);
+
+
+  const filteredFiles = useMemo(() => {
+
+    const term =
+      searchTerm
+        .trim()
+        .toLowerCase();
+
+    if (!term) {
+      return files;
+    }
+
+    return files.filter(
+      (file) =>
+        String(
+          file.path || ""
+        )
+          .toLowerCase()
+          .includes(term) ||
+        String(
+          file.language || ""
+        )
+          .toLowerCase()
+          .includes(term)
+    );
+
+  }, [files, searchTerm]);
+
+
+  async function openFile(file) {
+
+    if (!file?.path) {
+      return;
+    }
+
+    setSelectedFile(file);
+    setFileContent("");
+    setFileError("");
+    setFileLoading(true);
+
+    try {
+
+      const params = new URLSearchParams({
+        repository:
+          analysis.repository || "",
+        branch:
+          analysis.branch || "main",
+        path: file.path,
+      });
+
+      const response = await fetch(
+        `${API_BASE}/repository/file?${params.toString()}`
+      );
+
+      if (!response.ok) {
+
+        const errorData =
+          await response
+            .json()
+            .catch(() => null);
+
+        throw new Error(
+          errorData?.detail ||
+            `Unable to load file (${response.status})`
+        );
+      }
+
+      const data =
+        await response.json();
+
+      setFileContent(
+        data.content || ""
+      );
+
+    } catch (error) {
+
+      console.error(error);
+
+      setFileError(
+        error.message ||
+          "Unable to load file."
+      );
+
+    } finally {
+
+      setFileLoading(false);
+
+    }
+  }
+
+
+  return (
+
+    <section className="code-explorer-section">
+
+      <div className="section-heading">
+
+        <div>
+
+          <h2>
+            Code Explorer
+          </h2>
+
+          <p>
+            Browse analyzed files and inspect
+            their source code directly.
+          </p>
+
+        </div>
+
+        <span className="file-count">
+          {filteredFiles.length} files
+        </span>
+
+      </div>
+
+
+      <div className="code-explorer">
+
+        {/* File List */}
+
+        <aside className="file-browser">
+
+          <div className="file-search">
+
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
+              placeholder="Search files..."
+            />
+
+          </div>
+
+
+          {filteredFiles.length === 0 ? (
+
+            <div className="file-empty">
+              No files found.
+            </div>
+
+          ) : (
+
+            <div className="file-list">
+
+              {filteredFiles.map(
+                (file) => (
+
+                  <button
+                    key={file.path}
+                    className={`file-item ${
+                      selectedFile?.path ===
+                      file.path
+                        ? "selected"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      openFile(file)
+                    }
+                  >
+
+                    <div className="file-item-name">
+                      {getFileName(
+                        file.path
+                      )}
+                    </div>
+
+                    <div className="file-item-path">
+                      {file.path}
+                    </div>
+
+                    <div className="file-item-meta">
+
+                      <span>
+                        {file.language ||
+                          "Unknown"}
+                      </span>
+
+                      {file.lines !==
+                        null &&
+                        file.lines !==
+                        undefined && (
+
+                          <span>
+                            {file.lines} lines
+                          </span>
+
+                        )}
+
+                    </div>
+
+                  </button>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+        </aside>
+
+
+        {/* Source Viewer */}
+
+        <div className="source-viewer">
+
+          {!selectedFile ? (
+
+            <div className="source-empty">
+
+              <div>
+
+                <h3>
+                  Select a file
+                </h3>
+
+                <p>
+                  Choose a file from the
+                  explorer to inspect its
+                  source code.
+                </p>
+
+              </div>
+
+            </div>
+
+          ) : (
+
+            <>
+
+              <div className="source-header">
+
+                <div>
+
+                  <strong>
+                    {selectedFile.path}
+                  </strong>
+
+                  <div className="source-meta">
+
+                    <span>
+                      {selectedFile.language ||
+                        "Unknown"}
+                    </span>
+
+                    {selectedFile.lines !==
+                      null &&
+                      selectedFile.lines !==
+                      undefined && (
+
+                        <span>
+                          {selectedFile.lines} lines
+                        </span>
+
+                      )}
+
+                    {selectedFile.size_bytes !==
+                      null &&
+                      selectedFile.size_bytes !==
+                      undefined && (
+
+                        <span>
+                          {formatBytes(
+                            selectedFile.size_bytes
+                          )}
+                        </span>
+
+                      )}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {fileLoading ? (
+
+                <div className="source-status">
+                  Loading source code...
+                </div>
+
+              ) : fileError ? (
+
+                <div className="source-error">
+                  {fileError}
+                </div>
+
+              ) : (
+
+                <div className="source-code-container">
+
+                  <pre className="source-code">
+
+                    {fileContent
+                      .split("\n")
+                      .map(
+                        (
+                          line,
+                          index
+                        ) => (
+
+                          <div
+                            className="code-line"
+                            key={index}
+                          >
+
+                            <span className="line-number">
+                              {index + 1}
+                            </span>
+
+                            <span className="line-content">
+                              {line ||
+                                " "}
+                            </span>
+
+                          </div>
+
+                        )
+                      )}
+
+                  </pre>
+
+                </div>
+
+              )}
+
+            </>
+
+          )}
+
+        </div>
+
+      </div>
+
+    </section>
+  );
+}
+
+
+/* =========================================================
+   GRAPH HELPERS
+========================================================= */
+
+function normalizeGraph(graph) {
+
+  if (!graph) {
+
+    return {
+      nodes: [],
+      edges: [],
+    };
+
+  }
+
+  if (
+    Array.isArray(graph.nodes) &&
+    Array.isArray(graph.edges)
+  ) {
+
+    return {
+
+      nodes: graph.nodes.map(
+        (node, index) => {
+
+          if (
+            typeof node === "string"
+          ) {
+
+            return {
+              id: node,
+              label: node,
+            };
+
+          }
+
+          const id =
+            node.id ??
+            node.name ??
+            node.path ??
+            String(index);
+
+          return {
+
+            id: String(id),
+
+            label: String(
+              node.label ??
+                node.name ??
+                node.path ??
+                id
+            ),
+
+          };
+
+        }
+      ),
+
+      edges: graph.edges
+        .map((edge) => {
+
+          if (
+            Array.isArray(edge) &&
+            edge.length >= 2
+          ) {
+
+            return {
+
+              source: String(
+                edge[0]
+              ),
+
+              target: String(
+                edge[1]
+              ),
+
+            };
+
+          }
+
+          return {
+
+            source: String(
+              edge.source ??
+                edge.from ??
+                ""
+            ),
+
+            target: String(
+              edge.target ??
+                edge.to ??
+                ""
+            ),
+
+          };
+
+        })
+        .filter(
+          (edge) =>
+            edge.source &&
+            edge.target
+        ),
+
+    };
+
+  }
+
+
+  if (
+    typeof graph === "object" &&
+    !Array.isArray(graph)
+  ) {
+
+    const nodes = Object.keys(graph);
+
+    const edges = [];
+
+    nodes.forEach((source) => {
+
+      const dependencies =
+        graph[source];
+
+      if (
+        Array.isArray(
+          dependencies
+        )
+      ) {
+
+        dependencies.forEach(
+          (target) => {
+
+            edges.push({
+
+              source,
+
+              target: String(
+                target
+              ),
+
+            });
+
+          }
+        );
+
+      }
+
+    });
+
+    return {
+
+      nodes: [
+        ...new Set(
+          [
+            ...nodes,
+            ...edges.flatMap(
+              (edge) => [
+                edge.source,
+                edge.target,
+              ]
+            ),
+          ]
+        ),
+      ].map((name) => ({
+
+        id: String(name),
+
+        label: String(name),
+
+      })),
+
+      edges,
+
+    };
+
+  }
+
+
+  return {
+    nodes: [],
+    edges: [],
+  };
+}
+
+
+function calculateNodePositions(nodes) {
+
+  const positions = {};
+
+  const centerX = 500;
+  const centerY = 300;
+
+  const radius = Math.min(
+    220,
+    80 + nodes.length * 8
+  );
+
+  nodes.forEach(
+    (node, index) => {
+
+      const angle =
+        (2 * Math.PI * index) /
+        nodes.length;
+
+      positions[node.id] = {
+
+        x:
+          centerX +
+          radius *
+            Math.cos(angle),
+
+        y:
+          centerY +
+          radius *
+            Math.sin(angle),
+
+      };
+
+    }
+  );
+
+  return positions;
+}
+
+
+function shortenNodeName(name) {
+
+  if (!name) {
+    return "";
+  }
+
+  const value = String(name);
+
+  if (value.length <= 22) {
+    return value;
+  }
+
+  return `${value.slice(
+    0,
+    19
+  )}...`;
+}
+
+
+/* =========================================================
+   GENERAL HELPERS
+========================================================= */
+
+function getExtension(path) {
+
+  if (!path) {
+    return "";
+  }
+
+  const lastDot =
+    path.lastIndexOf(".");
+
+  if (
+    lastDot === -1
+  ) {
+    return "";
+  }
+
+  return path
+    .slice(lastDot)
+    .toLowerCase();
+}
+
+
+function getLanguageFromExtension(
+  extension
+) {
+
+  const languages = {
+
+    ".py": "Python",
+    ".js": "JavaScript",
+    ".jsx": "JavaScript",
+    ".ts": "TypeScript",
+    ".tsx": "TypeScript",
+    ".java": "Java",
+    ".c": "C",
+    ".cpp": "C++",
+    ".h": "C/C++",
+    ".hpp": "C++",
+    ".go": "Go",
+    ".rs": "Rust",
+    ".rb": "Ruby",
+    ".php": "PHP",
+    ".cs": "C#",
+    ".swift": "Swift",
+    ".kt": "Kotlin",
+    ".html": "HTML",
+    ".css": "CSS",
+    ".sql": "SQL",
+
+  };
+
+  return (
+    languages[extension] ||
+    "Unknown"
+  );
+}
+
+
+function getFileName(path) {
+
+  if (!path) {
+    return "Unknown";
+  }
+
+  const normalized =
+    path.replace(
+      /\\/g,
+      "/"
+    );
+
+  const parts =
+    normalized.split("/");
+
+  return (
+    parts[parts.length - 1] ||
+    path
+  );
+}
+
+
+function MetricCard({
+  title,
+  value,
+}) {
+
+  return (
+
+    <div className="metric-card">
+
+      <span>
+        {title}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
+
+    </div>
+
+  );
+}
+
+
+function AnalyticsMetric({
+  title,
+  value,
+}) {
+
+  return (
+
+    <div className="analytics-metric">
+
+      <span>
+        {title}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
+
+    </div>
+
+  );
+}
+
+
+function getRepositoryName(repository) {
+
+  if (!repository) {
+    return "Unknown Repository";
+  }
+
+  const parts = repository
+    .replace(/\/$/, "")
+    .split("/");
+
+  return (
+    parts[parts.length - 1] ||
+    "Repository"
+  );
+}
+
+
+function formatCategoryName(
+  category
+) {
+
+  return String(category)
+    .replace(/_/g, " ")
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
+    );
+}
+
+
+function formatBytes(bytes) {
+
+  if (
+    bytes === null ||
+    bytes === undefined ||
+    Number.isNaN(
+      Number(bytes)
+    )
+  ) {
+
+    return "N/A";
+
+  }
+
+  const value = Number(bytes);
+
+  if (value < 1024) {
+
+    return `${value} B`;
+
+  }
+
+  if (
+    value <
+    1024 * 1024
+  ) {
+
+    return `${(
+      value / 1024
+    ).toFixed(1)} KB`;
+
+  }
+
+  if (
+    value <
+    1024 *
+      1024 *
+      1024
+  ) {
+
+    return `${(
+      value /
+      (1024 * 1024)
+    ).toFixed(1)} MB`;
+
+  }
+
+  return `${(
+    value /
+    (1024 *
+      1024 *
+      1024)
+  ).toFixed(1)} GB`;
+}
+
+
+function formatDate(date) {
+
+  if (!date) {
+    return "Unknown date";
+  }
+
+  const parsedDate =
+    new Date(date);
+
+  if (
+    Number.isNaN(
+      parsedDate.getTime()
+    )
+  ) {
+
+    return date;
+
+  }
+
+  return parsedDate.toLocaleString();
+}
+
 
 export default App;
