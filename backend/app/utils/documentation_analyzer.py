@@ -116,7 +116,7 @@ def analyze_documentation(repo_path, files):
         level = "Good"
         reason = (
             "The repository contains documentation "
-            "and code comments."
+            "and code comments..."
         )
 
     return {

@@ -54,6 +54,77 @@ function getLanguageData(analysis) {
   return {};
 }
 
+/*
+ * =========================================================
+ * CODE STRUCTURE
+ * =========================================================
+ *
+ * Supports:
+ *
+ * analysis.total_functions
+ * analysis.total_classes
+ *
+ * OR:
+ *
+ * analysis.code_structure.total_functions
+ * analysis.code_structure.total_classes
+ *
+ * OR, as a fallback:
+ *
+ * analysis.code_structure.functions.length
+ * analysis.code_structure.classes.length
+ */
+function getCodeStructure(analysis) {
+  if (!analysis) {
+    return {
+      totalFunctions: null,
+      totalClasses: null,
+    };
+  }
+
+  const codeStructure =
+    analysis.code_structure ||
+    analysis.codeStructure ||
+    {};
+
+  let totalFunctions =
+    analysis.total_functions ??
+    analysis.totalFunctions ??
+    codeStructure.total_functions ??
+    codeStructure.totalFunctions ??
+    null;
+
+  let totalClasses =
+    analysis.total_classes ??
+    analysis.totalClasses ??
+    codeStructure.total_classes ??
+    codeStructure.totalClasses ??
+    null;
+
+  /*
+   * Final fallback:
+   * If only the arrays are available, calculate their lengths.
+   */
+  if (
+    totalFunctions === null &&
+    Array.isArray(codeStructure.functions)
+  ) {
+    totalFunctions = codeStructure.functions.length;
+  }
+
+  if (
+    totalClasses === null &&
+    Array.isArray(codeStructure.classes)
+  ) {
+    totalClasses = codeStructure.classes.length;
+  }
+
+  return {
+    totalFunctions,
+    totalClasses,
+  };
+}
+
 function getDependencyGraph(analysis) {
   if (!analysis) {
     return null;
@@ -86,16 +157,6 @@ function App() {
    * =========================================================
    * HEALTH SCORE
    * =========================================================
-   *
-   * Backend returns:
-   *
-   * health_score: {
-   *     overall_score: 73.33,
-   *     health_level: "Fair",
-   *     ...
-   * }
-   *
-   * Therefore we must read health_score.overall_score.
    */
 
   const healthScore = useMemo(() => {
@@ -152,6 +213,11 @@ function App() {
 
   const dependencyGraph = useMemo(
     () => getDependencyGraph(analysis),
+    [analysis]
+  );
+
+  const codeStructure = useMemo(
+    () => getCodeStructure(analysis),
     [analysis]
   );
 
@@ -349,7 +415,6 @@ function App() {
         </div>
       </header>
 
-
       <main className="container">
 
         {/* Analyze Repository */}
@@ -372,9 +437,7 @@ function App() {
               type="text"
               value={repositoryUrl}
               onChange={(event) =>
-                setRepositoryUrl(
-                  event.target.value
-                )
+                setRepositoryUrl(event.target.value)
               }
               placeholder="https://github.com/username/repository"
               disabled={loading}
@@ -397,12 +460,10 @@ function App() {
           )}
         </section>
 
-
         {/* Repository Dashboard */}
 
         {analysis && (
           <>
-
             {/* Repository Header */}
 
             <section className="repository-header">
@@ -423,8 +484,7 @@ function App() {
                 <span>
                   Branch:{" "}
                   <strong>
-                    {analysis.branch ||
-                      "Unknown"}
+                    {analysis.branch || "Unknown"}
                   </strong>
                 </span>
 
@@ -449,7 +509,6 @@ function App() {
 
               </div>
             </section>
-
 
             {/* Health Score */}
 
@@ -488,7 +547,6 @@ function App() {
 
             </section>
 
-
             {/* Basic Metrics */}
 
             <section className="metrics-grid">
@@ -512,7 +570,7 @@ function App() {
               <MetricCard
                 title="Functions"
                 value={
-                  analysis.total_functions ??
+                  codeStructure.totalFunctions ??
                   "N/A"
                 }
               />
@@ -520,13 +578,12 @@ function App() {
               <MetricCard
                 title="Classes"
                 value={
-                  analysis.total_classes ??
+                  codeStructure.totalClasses ??
                   "N/A"
                 }
               />
 
             </section>
-
 
             {/* Analytics */}
 
@@ -547,7 +604,6 @@ function App() {
 
                 </div>
               </div>
-
 
               <div className="analytics-grid">
 
@@ -626,7 +682,6 @@ function App() {
                   )}
 
                 </div>
-
 
                 {/* Languages */}
 
@@ -718,7 +773,6 @@ function App() {
 
               </div>
 
-
               {/* Complexity */}
 
               <div className="analytics-grid metrics-analytics">
@@ -763,13 +817,11 @@ function App() {
 
             </section>
 
-
             {/* Dependency Graph */}
 
             <DependencyGraph
               graph={dependencyGraph}
             />
-
 
             {/* Code Explorer */}
 
@@ -779,7 +831,6 @@ function App() {
 
           </>
         )}
-
 
         {/* History */}
 
@@ -919,7 +970,6 @@ function App() {
   );
 }
 
-
 /* =========================================================
    DEPENDENCY GRAPH
 ========================================================= */
@@ -1007,7 +1057,6 @@ function DependencyGraph({ graph }) {
 
       </div>
 
-
       <div className="dependency-graph-container">
 
         <svg
@@ -1036,7 +1085,6 @@ function DependencyGraph({ graph }) {
             </marker>
 
           </defs>
-
 
           <g className="graph-edges">
 
@@ -1080,7 +1128,6 @@ function DependencyGraph({ graph }) {
             )}
 
           </g>
-
 
           <g className="graph-nodes">
 
@@ -1139,7 +1186,6 @@ function DependencyGraph({ graph }) {
         </svg>
 
       </div>
-
 
       {selectedNode && (
 
@@ -1205,7 +1251,6 @@ function DependencyGraph({ graph }) {
   );
 }
 
-
 /* =========================================================
    CODE EXPLORER
 ========================================================= */
@@ -1262,7 +1307,6 @@ function CodeExplorer({ analysis }) {
 
   }, [analysis]);
 
-
   const filteredFiles = useMemo(() => {
 
     const term =
@@ -1289,7 +1333,6 @@ function CodeExplorer({ analysis }) {
     );
 
   }, [files, searchTerm]);
-
 
   async function openFile(file) {
 
@@ -1352,7 +1395,6 @@ function CodeExplorer({ analysis }) {
     }
   }
 
-
   return (
 
     <section className="code-explorer-section">
@@ -1378,7 +1420,6 @@ function CodeExplorer({ analysis }) {
 
       </div>
 
-
       <div className="code-explorer">
 
         {/* File List */}
@@ -1399,7 +1440,6 @@ function CodeExplorer({ analysis }) {
             />
 
           </div>
-
 
           {filteredFiles.length === 0 ? (
 
@@ -1467,7 +1507,6 @@ function CodeExplorer({ analysis }) {
           )}
 
         </aside>
-
 
         {/* Source Viewer */}
 
@@ -1542,7 +1581,6 @@ function CodeExplorer({ analysis }) {
 
               </div>
 
-
               {fileLoading ? (
 
                 <div className="source-status">
@@ -1605,7 +1643,6 @@ function CodeExplorer({ analysis }) {
     </section>
   );
 }
-
 
 /* =========================================================
    GRAPH HELPERS
@@ -1714,7 +1751,6 @@ function normalizeGraph(graph) {
 
   }
 
-
   if (
     typeof graph === "object" &&
     !Array.isArray(graph)
@@ -1783,13 +1819,11 @@ function normalizeGraph(graph) {
 
   }
 
-
   return {
     nodes: [],
     edges: [],
   };
 }
-
 
 function calculateNodePositions(nodes) {
 
@@ -1830,7 +1864,6 @@ function calculateNodePositions(nodes) {
   return positions;
 }
 
-
 function shortenNodeName(name) {
 
   if (!name) {
@@ -1848,7 +1881,6 @@ function shortenNodeName(name) {
     19
   )}...`;
 }
-
 
 /* =========================================================
    GENERAL HELPERS
@@ -1873,7 +1905,6 @@ function getExtension(path) {
     .slice(lastDot)
     .toLowerCase();
 }
-
 
 function getLanguageFromExtension(
   extension
@@ -1910,7 +1941,6 @@ function getLanguageFromExtension(
   );
 }
 
-
 function getFileName(path) {
 
   if (!path) {
@@ -1931,7 +1961,6 @@ function getFileName(path) {
     path
   );
 }
-
 
 function MetricCard({
   title,
@@ -1955,7 +1984,6 @@ function MetricCard({
   );
 }
 
-
 function AnalyticsMetric({
   title,
   value,
@@ -1978,7 +2006,6 @@ function AnalyticsMetric({
   );
 }
 
-
 function getRepositoryName(repository) {
 
   if (!repository) {
@@ -1995,7 +2022,6 @@ function getRepositoryName(repository) {
   );
 }
 
-
 function formatCategoryName(
   category
 ) {
@@ -2008,7 +2034,6 @@ function formatCategoryName(
         letter.toUpperCase()
     );
 }
-
 
 function formatBytes(bytes) {
 
@@ -2065,7 +2090,6 @@ function formatBytes(bytes) {
   ).toFixed(1)} GB`;
 }
 
-
 function formatDate(date) {
 
   if (!date) {
@@ -2087,6 +2111,5 @@ function formatDate(date) {
 
   return parsedDate.toLocaleString();
 }
-
 
 export default App;
