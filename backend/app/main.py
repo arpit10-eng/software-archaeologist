@@ -1,4 +1,5 @@
 import json
+import os
 from base64 import b64decode
 from urllib.parse import quote, urlparse
 
@@ -37,10 +38,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
+        origin.strip()
+        for origin in os.getenv(
+            "SOFTWARE_ARCHAEOLOGIST_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+        ).split(",")
+        if origin.strip()
     ],
     allow_credentials=True,
     allow_methods=["*"],

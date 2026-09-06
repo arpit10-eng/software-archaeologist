@@ -829,6 +829,14 @@ function App() {
               analysis={analysis}
             />
 
+            <FindingsSection
+              findings={analysis.findings || []}
+            />
+
+            <RecommendationsSection
+              recommendations={analysis.ai_recommendations || []}
+            />
+
           </>
         )}
 
@@ -973,6 +981,64 @@ function App() {
 /* =========================================================
    DEPENDENCY GRAPH
 ========================================================= */
+
+function FindingsSection({ findings }) {
+  const severityOrder = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
+  const sorted = [...findings].sort((a, b) =>
+    (severityOrder[a.severity] ?? 9) - (severityOrder[b.severity] ?? 9)
+  );
+  return (
+    <section className="findings-section">
+      <div className="section-heading">
+        <div><h2>Detailed Findings</h2><p>Evidence-backed issues detected during repository analysis.</p></div>
+        <span className="finding-count">{sorted.length} findings</span>
+      </div>
+      {sorted.length === 0 ? <div className="empty-state">No actionable findings were detected.</div> :
+        <div className="findings-list">
+          {sorted.map((item, index) => (
+            <article className="finding-card" key={`${item.category}-${item.title}-${index}`}>
+              <div className="finding-topline">
+                <span className={`severity severity-${String(item.severity || 'Medium').toLowerCase()}`}>{item.severity}</span>
+                <span className="finding-category">{item.category}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.description}</p>
+              {item.evidence?.length > 0 && <div className="evidence"><strong>Evidence</strong>{item.evidence.map((evidence, i) => <code key={i}>{evidence}</code>)}</div>}
+              {item.recommendation && <div className="finding-action"><strong>Recommended action:</strong> {item.recommendation}</div>}
+            </article>
+          ))}
+        </div>
+      }
+    </section>
+  );
+}
+
+function RecommendationsSection({ recommendations }) {
+  return (
+    <section className="recommendations-section">
+      <div className="section-heading">
+        <div><h2>AI Recommendations</h2><p>Prioritized recommendations generated from detected evidence and scores.</p></div>
+        <span className="finding-count">{recommendations.length} recommendations</span>
+      </div>
+      {recommendations.length === 0 ? <div className="empty-state">No additional recommendations are required.</div> :
+        <div className="recommendations-list">
+          {recommendations.map((item, index) => (
+            <article className="recommendation-card" key={`${item.category}-${item.title}-${index}`}>
+              <div className="recommendation-header">
+                <div><span className={`priority priority-${String(item.priority || 'Medium').toLowerCase()}`}>{item.priority}</span><span className="finding-category">{item.category}</span></div>
+                <span>#{index + 1}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.description}</p>
+              {item.evidence?.length > 0 && <div className="recommendation-evidence">{item.evidence.map((evidence, i) => <span key={i}>{evidence}</span>)}</div>}
+              {item.action && <div className="finding-action"><strong>Next step:</strong> {item.action}</div>}
+            </article>
+          ))}
+        </div>
+      }
+    </section>
+  );
+}
 
 function DependencyGraph({ graph }) {
 

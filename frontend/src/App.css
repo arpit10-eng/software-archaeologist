@@ -1309,3 +1309,121 @@ button:disabled {
     padding-left: 12px;
   }
 }
+/* =========================================================
+FINDINGS + RECOMMENDATIONS
+========================================================= */
+.findings-section,
+.recommendations-section {
+  background: #ffffff;
+  border: 1px solid #e5e8ef;
+  border-radius: 14px;
+  padding: 26px;
+  margin-bottom: 26px;
+}
+
+.finding-count {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.findings-list,
+.recommendations-list {
+  display: grid;
+  gap: 14px;
+}
+
+.finding-card,
+.recommendation-card {
+  border: 1px solid #e5e8ef;
+  border-radius: 11px;
+  padding: 18px;
+  background: #fbfcfe;
+}
+
+.finding-topline,
+.recommendation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finding-card h3,
+.recommendation-card h3 {
+  margin: 12px 0 7px;
+  font-size: 16px;
+}
+
+.finding-card p,
+.recommendation-card p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.finding-category {
+  margin-left: 9px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.severity,
+.priority {
+  display: inline-flex;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.severity-critical,
+.priority-high { background: #fee2e2; color: #991b1b; }
+.severity-high { background: #ffedd5; color: #9a3412; }
+.severity-medium,
+.priority-medium { background: #fef3c7; color: #92400e; }
+.severity-low,
+.priority-low { background: #dcfce7; color: #166534; }
+
+.evidence,
+.recommendation-evidence {
+  margin-top: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.evidence strong { width: 100%; font-size: 12px; }
+.evidence code,
+.recommendation-evidence span {
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #eef1f6;
+  color: #475569;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.finding-action {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e8ef;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.empty-state {
+  padding: 20px;
+  border: 1px dashed #d7dce5;
+  border-radius: 9px;
+  color: #64748b;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .findings-section,
+  .recommendations-section { padding: 18px; }
+}
