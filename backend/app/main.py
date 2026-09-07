@@ -1,5 +1,4 @@
 import json
-import os
 from base64 import b64decode
 from urllib.parse import quote, urlparse
 
@@ -8,7 +7,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.database.database import Base, SessionLocal, engine, ensure_schema
+from app.config import settings
+from app.database.database import (
+    Base,
+    SessionLocal,
+    engine,
+    ensure_schema,
+)
 from app.database.models import RepositoryAnalysis
 from app.services.github_services import analyze_repository
 
@@ -17,7 +22,10 @@ from app.services.github_services import analyze_repository
 # Database Initialization
 # =========================================================
 
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(
+    bind=engine
+)
+
 ensure_schema()
 
 
@@ -26,8 +34,8 @@ ensure_schema()
 # =========================================================
 
 app = FastAPI(
-    title="Software Archaeologist",
-    version="2.1.0",
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
 )
 
 
@@ -37,14 +45,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        origin.strip()
-        for origin in os.getenv(
-            "SOFTWARE_ARCHAEOLOGIST_ALLOWED_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
-        ).split(",")
-        if origin.strip()
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,7 +61,8 @@ def root():
     return {
         "status": "success",
         "message": "Software Archaeologist API is running.",
-        "version": "2.1.0",
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
     }
 
 
@@ -261,7 +263,7 @@ def get_repository_file(
     )
 
     api_url = (
-        f"https://api.github.com/repos/"
+        "https://api.github.com/repos/"
         f"{owner}/{repo_name}/contents/"
         f"{encoded_path}"
     )
@@ -271,7 +273,7 @@ def get_repository_file(
         params={
             "ref": branch,
         },
-        timeout=10,
+        timeout=settings.GITHUB_API_TIMEOUT,
     )
 
     if response.status_code == 404:

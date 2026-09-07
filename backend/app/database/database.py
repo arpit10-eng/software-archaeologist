@@ -1,15 +1,23 @@
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from app.config import settings
 
-DATABASE_URL = "sqlite:///./software_archaeologist.db"
+
+DATABASE_URL = settings.DATABASE_URL
+
+
+engine_kwargs = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {
+        "check_same_thread": False
+    }
 
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={
-        "check_same_thread": False
-    },
+    **engine_kwargs,
 )
 
 
@@ -29,7 +37,13 @@ def ensure_schema():
 
     This is mainly used to add newly introduced columns to an existing
     repository_analyses table.
+
+    For non-SQLite production databases, schema migrations should
+    eventually be handled by a dedicated migration system.
     """
+
+    if not DATABASE_URL.startswith("sqlite"):
+        return
 
     inspector = inspect(engine)
 
