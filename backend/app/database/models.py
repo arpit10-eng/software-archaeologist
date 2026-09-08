@@ -1,4 +1,12 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, func
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 
 from app.database.database import Base
 
@@ -13,17 +21,19 @@ class RepositoryAnalysis(Base):
     )
 
     repository = Column(
-        String,
+        String(500),
         nullable=False,
+        index=True,
     )
 
     branch = Column(
-        String,
+        String(250),
         nullable=False,
+        index=True,
     )
 
     primary_language = Column(
-        String,
+        String(100),
         nullable=True,
     )
 
@@ -34,6 +44,17 @@ class RepositoryAnalysis(Base):
 
     created_at = Column(
         DateTime,
+        default=func.current_timestamp(),
         server_default=func.current_timestamp(),
         nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_repository_analyses_repo_branch_created",
+            "repository",
+            "branch",
+            "created_at",
+        ),
     )

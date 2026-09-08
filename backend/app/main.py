@@ -4,7 +4,7 @@ from base64 import b64decode
 from urllib.parse import quote, urlparse
 
 import requests
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,10 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import settings
 from app.database.database import (
-    Base,
-    SessionLocal,
-    engine,
-    ensure_schema,
+    get_db,
+    initialize_database,
 )
 from app.database.models import RepositoryAnalysis
 from app.services.github_services import analyze_repository
@@ -38,11 +36,7 @@ logger = logging.getLogger("software_archaeologist")
 # Database Initialization
 # =========================================================
 
-Base.metadata.create_all(
-    bind=engine
-)
-
-ensure_schema()
+initialize_database()
 
 
 # =========================================================
@@ -244,15 +238,17 @@ def get_repository_history(
         0,
         ge=0,
     ),
+    db: Session = Depends(get_db),
 ):
     """
     Retrieve repository analysis history.
 
     Pagination is limited to prevent unnecessarily large
     database queries.
-    """
 
-    db: Session = SessionLocal()
+    The database session is provided by FastAPI dependency
+    injection and is automatically closed after the request.
+    """
 
     try:
         query = db.query(
@@ -311,9 +307,6 @@ def get_repository_history(
         )
         raise
 
-    finally:
-        db.close()
-
 
 # =========================================================
 # Get Specific Analysis
@@ -322,12 +315,14 @@ def get_repository_history(
 @app.get("/repository/history/{analysis_id}")
 def get_repository_analysis(
     analysis_id: int,
+    db: Session = Depends(get_db),
 ):
     """
     Retrieve a previously stored repository analysis.
-    """
 
-    db: Session = SessionLocal()
+    The database session is provided by FastAPI dependency
+    injection and is automatically closed after the request.
+    """
 
     try:
         record = (
@@ -380,9 +375,6 @@ def get_repository_analysis(
             analysis_id,
         )
         raise
-
-    finally:
-        db.close()
 
 
 # =========================================================
