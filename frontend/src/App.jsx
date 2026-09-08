@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV
+    ? "http://127.0.0.1:8000"
+    : "");
 
 function getCategoryScores(analysis) {
   if (!analysis) {
@@ -147,6 +151,8 @@ function App() {
 
   const [loading, setLoading] = useState(false);
 
+  const [apiStatus, setApiStatus] = useState("checking");
+
   const [historyError, setHistoryError] = useState("");
   const [analysisError, setAnalysisError] = useState("");
 
@@ -245,6 +251,38 @@ function App() {
       0
     );
   }, [sortedLanguages]);
+
+  /*
+   * =========================================================
+   * API STATUS
+   * =========================================================
+   */
+
+  async function checkApiStatus() {
+    if (!API_BASE) {
+      setApiStatus("offline");
+      return;
+    }
+
+    setApiStatus("checking");
+
+    try {
+      const response = await fetch(`${API_BASE}/`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Backend returned ${response.status}`
+        );
+      }
+
+      setApiStatus("online");
+    } catch (error) {
+      console.error("Backend health check failed:", error);
+      setApiStatus("offline");
+    }
+  }
 
   /*
    * =========================================================
@@ -361,10 +399,13 @@ function App() {
       const data = await response.json();
 
       setAnalysis(data);
+      setApiStatus("online");
 
       await loadHistory();
     } catch (error) {
       console.error(error);
+
+      setApiStatus("offline");
 
       setAnalysisError(
         error.message ||
@@ -397,8 +438,67 @@ function App() {
    */
 
   useEffect(() => {
+  const timer = setTimeout(() => {
     loadHistory();
-  }, []);
+    checkApiStatus();
+  }, 0);
+
+  return () => clearTimeout(timer);
+}, []);
+
+  /*
+   * =========================================================
+   * API STATUS DISPLAY
+   * =========================================================
+   */
+
+  const apiStatusLabel =
+    apiStatus === "online"
+      ? "Backend: Online"
+      : apiStatus === "offline"
+        ? "Backend: Offline"
+        : "Backend: Checking...";
+
+  const apiStatusStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "7px",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "600",
+    border: "1px solid",
+    background:
+      apiStatus === "online"
+        ? "rgba(34, 197, 94, 0.10)"
+        : apiStatus === "offline"
+          ? "rgba(239, 68, 68, 0.10)"
+          : "rgba(234, 179, 8, 0.10)",
+    borderColor:
+      apiStatus === "online"
+        ? "rgba(34, 197, 94, 0.30)"
+        : apiStatus === "offline"
+          ? "rgba(239, 68, 68, 0.30)"
+          : "rgba(234, 179, 8, 0.30)",
+    color:
+      apiStatus === "online"
+        ? "#16a34a"
+        : apiStatus === "offline"
+          ? "#dc2626"
+          : "#ca8a04",
+  };
+
+  const apiStatusDotStyle = {
+    width: "7px",
+    height: "7px",
+    borderRadius: "50%",
+    background:
+      apiStatus === "online"
+        ? "#16a34a"
+        : apiStatus === "offline"
+          ? "#dc2626"
+          : "#ca8a04",
+  };
 
   return (
     <div className="app">
@@ -412,6 +512,21 @@ function App() {
           <p>
             Repository intelligence and code health analysis
           </p>
+        </div>
+
+        <div
+          style={apiStatusStyle}
+          title={
+            apiStatus === "online"
+              ? "The FastAPI backend is reachable."
+              : apiStatus === "offline"
+                ? "The FastAPI backend is unavailable."
+                : "Checking backend availability."
+          }
+        >
+          <span style={apiStatusDotStyle} />
+
+          {apiStatusLabel}
         </div>
       </header>
 
@@ -979,66 +1094,248 @@ function App() {
 }
 
 /* =========================================================
-   DEPENDENCY GRAPH
+   FINDINGS
 ========================================================= */
 
 function FindingsSection({ findings }) {
-  const severityOrder = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
-  const sorted = [...findings].sort((a, b) =>
-    (severityOrder[a.severity] ?? 9) - (severityOrder[b.severity] ?? 9)
+  const severityOrder = {
+    Critical: 0,
+    High: 1,
+    Medium: 2,
+    Low: 3,
+    Info: 4,
+  };
+
+  const sorted = [...findings].sort(
+    (a, b) =>
+      (severityOrder[a.severity] ?? 9) -
+      (severityOrder[b.severity] ?? 9)
   );
+
   return (
     <section className="findings-section">
+
       <div className="section-heading">
-        <div><h2>Detailed Findings</h2><p>Evidence-backed issues detected during repository analysis.</p></div>
-        <span className="finding-count">{sorted.length} findings</span>
-      </div>
-      {sorted.length === 0 ? <div className="empty-state">No actionable findings were detected.</div> :
-        <div className="findings-list">
-          {sorted.map((item, index) => (
-            <article className="finding-card" key={`${item.category}-${item.title}-${index}`}>
-              <div className="finding-topline">
-                <span className={`severity severity-${String(item.severity || 'Medium').toLowerCase()}`}>{item.severity}</span>
-                <span className="finding-category">{item.category}</span>
-              </div>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              {item.evidence?.length > 0 && <div className="evidence"><strong>Evidence</strong>{item.evidence.map((evidence, i) => <code key={i}>{evidence}</code>)}</div>}
-              {item.recommendation && <div className="finding-action"><strong>Recommended action:</strong> {item.recommendation}</div>}
-            </article>
-          ))}
+
+        <div>
+          <h2>Detailed Findings</h2>
+
+          <p>
+            Evidence-backed issues detected during
+            repository analysis.
+          </p>
         </div>
-      }
+
+        <span className="finding-count">
+          {sorted.length} findings
+        </span>
+
+      </div>
+
+      {sorted.length === 0 ? (
+
+        <div className="empty-state">
+          No actionable findings were detected.
+        </div>
+
+      ) : (
+
+        <div className="findings-list">
+
+          {sorted.map((item, index) => (
+
+            <article
+              className="finding-card"
+              key={`${item.category}-${item.title}-${index}`}
+            >
+
+              <div className="finding-topline">
+
+                <span
+                  className={`severity severity-${String(
+                    item.severity || "Medium"
+                  ).toLowerCase()}`}
+                >
+                  {item.severity}
+                </span>
+
+                <span className="finding-category">
+                  {item.category}
+                </span>
+
+              </div>
+
+              <h3>
+                {item.title}
+              </h3>
+
+              <p>
+                {item.description}
+              </p>
+
+              {item.evidence?.length > 0 && (
+
+                <div className="evidence">
+
+                  <strong>
+                    Evidence
+                  </strong>
+
+                  {item.evidence.map(
+                    (evidence, i) => (
+                      <code key={i}>
+                        {evidence}
+                      </code>
+                    )
+                  )}
+
+                </div>
+
+              )}
+
+              {item.recommendation && (
+
+                <div className="finding-action">
+
+                  <strong>
+                    Recommended action:
+                  </strong>{" "}
+                  {item.recommendation}
+
+                </div>
+
+              )}
+
+            </article>
+
+          ))}
+
+        </div>
+
+      )}
+
     </section>
   );
 }
 
-function RecommendationsSection({ recommendations }) {
+function RecommendationsSection({
+  recommendations,
+}) {
   return (
     <section className="recommendations-section">
+
       <div className="section-heading">
-        <div><h2>AI Recommendations</h2><p>Prioritized recommendations generated from detected evidence and scores.</p></div>
-        <span className="finding-count">{recommendations.length} recommendations</span>
-      </div>
-      {recommendations.length === 0 ? <div className="empty-state">No additional recommendations are required.</div> :
-        <div className="recommendations-list">
-          {recommendations.map((item, index) => (
-            <article className="recommendation-card" key={`${item.category}-${item.title}-${index}`}>
-              <div className="recommendation-header">
-                <div><span className={`priority priority-${String(item.priority || 'Medium').toLowerCase()}`}>{item.priority}</span><span className="finding-category">{item.category}</span></div>
-                <span>#{index + 1}</span>
-              </div>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              {item.evidence?.length > 0 && <div className="recommendation-evidence">{item.evidence.map((evidence, i) => <span key={i}>{evidence}</span>)}</div>}
-              {item.action && <div className="finding-action"><strong>Next step:</strong> {item.action}</div>}
-            </article>
-          ))}
+
+        <div>
+          <h2>AI Recommendations</h2>
+
+          <p>
+            Prioritized recommendations generated
+            from detected evidence and scores.
+          </p>
         </div>
-      }
+
+        <span className="finding-count">
+          {recommendations.length} recommendations
+        </span>
+
+      </div>
+
+      {recommendations.length === 0 ? (
+
+        <div className="empty-state">
+          No additional recommendations are required.
+        </div>
+
+      ) : (
+
+        <div className="recommendations-list">
+
+          {recommendations.map(
+            (item, index) => (
+
+              <article
+                className="recommendation-card"
+                key={`${item.category}-${item.title}-${index}`}
+              >
+
+                <div className="recommendation-header">
+
+                  <div>
+
+                    <span
+                      className={`priority priority-${String(
+                        item.priority || "Medium"
+                      ).toLowerCase()}`}
+                    >
+                      {item.priority}
+                    </span>
+
+                    <span className="finding-category">
+                      {item.category}
+                    </span>
+
+                  </div>
+
+                  <span>
+                    #{index + 1}
+                  </span>
+
+                </div>
+
+                <h3>
+                  {item.title}
+                </h3>
+
+                <p>
+                  {item.description}
+                </p>
+
+                {item.evidence?.length > 0 && (
+
+                  <div className="recommendation-evidence">
+
+                    {item.evidence.map(
+                      (evidence, i) => (
+                        <span key={i}>
+                          {evidence}
+                        </span>
+                      )
+                    )}
+
+                  </div>
+
+                )}
+
+                {item.action && (
+
+                  <div className="finding-action">
+
+                    <strong>
+                      Next step:
+                    </strong>{" "}
+                    {item.action}
+
+                  </div>
+
+                )}
+
+              </article>
+
+            )
+          )}
+
+        </div>
+
+      )}
+
     </section>
   );
 }
+
+/* =========================================================
+   DEPENDENCY GRAPH
+========================================================= */
 
 function DependencyGraph({ graph }) {
 
@@ -2048,6 +2345,7 @@ function MetricCard({
     </div>
 
   );
+
 }
 
 function AnalyticsMetric({
@@ -2070,6 +2368,7 @@ function AnalyticsMetric({
     </div>
 
   );
+
 }
 
 function getRepositoryName(repository) {
