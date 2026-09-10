@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: software-archaeologist-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SOFTWARE_ARCHAEOLOGIST_ENVIRONMENT
+        value: production
+      - key: SOFTWARE_ARCHAEOLOGIST_DEBUG
+        value: "false"
+      - key: SOFTWARE_ARCHAEOLOGIST_ALLOWED_ORIGINS
+        sync: false
+
+  - type: web
+    name: software-archaeologist-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
