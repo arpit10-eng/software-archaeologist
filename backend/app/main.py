@@ -165,15 +165,19 @@ async def unexpected_exception_handler(
 
 @app.get("/")
 def root():
-    logger.info(
-        "Root endpoint requested."
-    )
-
+    logger.info("Root endpoint requested.")
     return {
         "status": "success",
         "message": "Software Archaeologist API is running.",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
     }
 
 
