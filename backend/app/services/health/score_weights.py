@@ -1,8 +1,19 @@
 """
+Software Archaeologist
+
+Designed and developed by Arpit Chamoli.
+
+Repository:
+https://github.com/arpit10-eng/software-archaeologist
+"""
+
+"""
 Canonical health-score weights used by the repository health engine.
 
 All category maximums live here so the scoring system has a single
+
 source of truth.
+
 """
 
 SCORE_WEIGHTS = {

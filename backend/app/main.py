@@ -1,3 +1,12 @@
+"""
+Software Archaeologist
+
+Designed and developed by Arpit Chamoli.
+
+Repository:
+https://github.com/arpit10-eng/software-archaeologist
+"""
+
 import json
 import logging
 from base64 import b64decode
@@ -16,6 +25,7 @@ from app.database.database import (
     get_db,
     initialize_database,
 )
+
 from app.database.models import RepositoryAnalysis
 from app.services.github_services import analyze_repository
 
@@ -28,6 +38,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
+
 
 logger = logging.getLogger("software_archaeologist")
 

@@ -1,3 +1,12 @@
+"""
+Software Archaeologist
+
+Designed and developed by Arpit Chamoli.
+
+Repository:
+https://github.com/arpit10-eng/software-archaeologist
+"""
+
 import os
 
 

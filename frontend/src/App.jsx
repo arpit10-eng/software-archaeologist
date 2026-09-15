@@ -1,3 +1,11 @@
+/*
+ * Software Archaeologist
+ *
+ * Designed and developed by Arpit Chamoli.
+ *
+ * Repository:
+ * https://github.com/arpit10-eng/software-archaeologist
+ */
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 

@@ -1,16 +1,66 @@
-# React + Vite
+# Software Archaeologist — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend for **Software Archaeologist**, an AI-powered repository intelligence platform designed and developed by **Arpit Chamoli**.
 
-Currently, two official plugins are available:
+The application provides an interactive interface for analyzing GitHub repositories and exploring their architecture, code quality, security, maintainability, complexity, dependencies, and engineering health.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Author
 
-## React Compiler
+**Arpit Chamoli**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Software Archaeologist was independently designed and developed by Arpit Chamoli.
 
-## Expanding the ESLint configuration
+GitHub:
+https://github.com/arpit10-eng/software-archaeologist
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Live Application
+
+https://software-archaeologist-frontend.onrender.com
+
+## Backend API
+
+https://software-archaeologist-api.onrender.com
+
+## Features
+
+- GitHub repository analysis
+- Engineering health score dashboard
+- Health category analysis
+- Repository and code metrics
+- Programming language detection
+- Framework and dependency information
+- Code complexity visualization
+- Interactive dependency graph
+- Code Explorer
+- Function and class inspection
+- Security findings
+- Secret exposure detection
+- Code-quality findings
+- AI-assisted recommendations
+- Analysis history
+- Production API status monitoring
+
+## Technology Stack
+
+- React
+- Vite
+- JavaScript
+- CSS
+- FastAPI backend
+- GitHub API
+
+## Project Structure
+
+```text
+frontend/
+├── public/
+├── src/
+│   ├── App.jsx
+│   ├── App.css
+│   └── ...
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+├── vite.config.js
+└── README.md
