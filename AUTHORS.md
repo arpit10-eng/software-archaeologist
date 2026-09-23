@@ -8,7 +8,7 @@ Software Archaeologist is an independently designed and developed full-stack rep
 
 The project was developed incrementally from the initial concept through implementation, testing, production deployment, and documentation.
 
-### Author
+### Author.
 
 **Arpit Chamoli**
 
