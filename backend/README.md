@@ -1,4 +1,4 @@
-# Software-Archaeologist
+# Software Archaeologist
 
 Software Archaeologist is a full-stack repository intelligence platform that analyzes public GitHub repositories and generates structured insights about their codebase, architecture, dependencies, complexity, security, maintainability, and overall engineering health.
 
