@@ -6,7 +6,7 @@ It combines a FastAPI backend, automated repository analysis services, database-
 
 ---
 
-## Live  Demo
+## Live Demo
 
 - **Frontend:** https://software-archaeologist-frontend.onrender.com
 - **Backend API:** https://software-archaeologist-api.onrender.com
