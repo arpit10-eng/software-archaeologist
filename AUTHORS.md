@@ -1,7 +1,7 @@
 # Authors
 
 
-## Software  Archaeologist
+## Software Archaeologist
 
 **Designed and developed by Arpit Chamoli.**
 
